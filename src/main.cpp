@@ -29,7 +29,7 @@ int main (int argc, char* argv[])
 
         tool.add (new BankConverter ());
         tool.add (new DSK           ());
-//        tool.add (new Minia         ());
+        tool.add (new Minia         ());
 
         tool.run (argc, argv);
     }
