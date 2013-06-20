@@ -110,9 +110,10 @@ public:
 Minia::Minia () : Tool("minia"), _kmerSize(0)
 {
     /** We add options specific to this tool. */
-    _parser->add (new OptionOneParam (DSK::STR_KMER_SIZE,       "size of a kmer",   true                ));
-    _parser->add (new OptionOneParam (DSK::STR_URI_SOLID_KMERS, "solid kmers file", false               ));
-    _parser->add (new OptionOneParam (Minia::STR_URI_DEBLOOM,   "debloom file",     false,  "debloom"   ));
+    getParser()->add (new OptionOneParam (Tool::STR_URI_DATABASE,   "databank uri",     true));
+    getParser()->add (new OptionOneParam (DSK::STR_KMER_SIZE,       "size of a kmer",   true                ));
+    getParser()->add (new OptionOneParam (DSK::STR_URI_SOLID_KMERS, "solid kmers file", false               ));
+    getParser()->add (new OptionOneParam (Minia::STR_URI_DEBLOOM,   "debloom file",     false,  "debloom"   ));
 }
 
 /*********************************************************************
@@ -128,8 +129,8 @@ void Minia::execute ()
     /*************************************************/
     // We set some attributes (shortcuts).
     /*************************************************/
-    _kmerSize  = _input->getInt (DSK::STR_KMER_SIZE);
-    _solidFile = _input->getStr (DSK::STR_URI_SOLID_KMERS);
+    _kmerSize  = getInput()->getInt (DSK::STR_KMER_SIZE);
+    _solidFile = getInput()->getStr (DSK::STR_URI_SOLID_KMERS);
 
     KmerModel model (_kmerSize);
 
@@ -143,8 +144,8 @@ void Minia::execute ()
     /** We create an iterator over the solid kmers.  */
     /*************************************************/
     Iterator<kmer_type>* itKmers = createIterator<kmer_type> (
-        new IteratorFile<kmer_type> (_input->getStr (DSK::STR_URI_SOLID_KMERS)),
-        System::file().getSize(_input->getStr (DSK::STR_URI_SOLID_KMERS)) / sizeof (kmer_type),
+        new IteratorFile<kmer_type> (getInput()->getStr (DSK::STR_URI_SOLID_KMERS)),
+        System::file().getSize(getInput()->getStr (DSK::STR_URI_SOLID_KMERS)) / sizeof (kmer_type),
         "iterate solid kmers"
     );
     LOCAL (itKmers);
@@ -163,9 +164,9 @@ void Minia::execute ()
     /** We fill the debloom file.                    */
     /*************************************************/
     {
-        TIME_INFO (_timeInfo, "fill debloom file");
+        TIME_INFO (getTimeInfo(), "fill debloom file");
 
-        _dispatcher->iterate (itKmers, BuildKmerExtension (model, bloom, debloomFile));
+        getDispatcher()->iterate (itKmers, BuildKmerExtension (model, bloom, debloomFile));
     }
 
     /** We make sure everything is put into the extension file. */
@@ -182,7 +183,7 @@ void Minia::execute ()
 *********************************************************************/
 Bloom<kmer_type>* Minia::createBloom ()
 {
-    TIME_INFO (_timeInfo, "fill bloom filter");
+    TIME_INFO (getTimeInfo(), "fill bloom filter");
 
     double lg2 = log(2);
     float NBITS_PER_KMER = log (16*_kmerSize*(lg2*lg2))/(lg2*lg2);
@@ -201,13 +202,13 @@ Bloom<kmer_type>* Minia::createBloom ()
     LOCAL (itKmers);
 
     /** We use a bloom builder. */
-    BloomBuilder builder (itKmers, estimatedBloomSize, (int)floorf (0.7*NBITS_PER_KMER), _input->getInt(Tool::STR_NB_CORES));
+    BloomBuilder builder (itKmers, estimatedBloomSize, (int)floorf (0.7*NBITS_PER_KMER), getInput()->getInt(Tool::STR_NB_CORES));
 
     /** We instantiate the bloom object. */
     IProperties* bloomProps = new Properties();
     Bloom<kmer_type>* bloom = builder.build (bloomProps);
 
-    _info->add (1, bloomProps);
+    getInfo()->add (1, bloomProps);
 
     /** We return the created bloom filter. */
     return bloom;
