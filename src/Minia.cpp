@@ -90,7 +90,7 @@ public:
     }
 
     BuildKmerExtension (KmerModel& model, Bloom<kmer_type>* bloom, Bag<kmer_type>* extendBag)
-        : _bloom(bloom), _extendBag(extendBag, 5*1000, getSynchro()), _itNeighbors(model)  { }
+        : _bloom(bloom), _extendBag(extendBag, 5*1000, this->newSynchro()), _itNeighbors(model)  { }
 
     ~BuildKmerExtension ()  {  _extendBag.flush();  }
 
