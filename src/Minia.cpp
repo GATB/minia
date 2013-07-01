@@ -31,11 +31,6 @@
 
 #include <gatb/tools/math/Integer.hpp>
 
-#include <omptl/omptl_numeric>
-#include <omptl/omptl_algorithm>
-
-#include <omp.h>
-
 #include <Minia.hpp>
 #include <DSK.hpp>
 
@@ -190,7 +185,7 @@ Bloom<kmer_type>* Minia::createBloom ()
 
     u_int64_t solidFileSize = (System::file().getSize(_solidFile) / sizeof (kmer_type));
 
-    u_int64_t estimatedBloomSize = solidFileSize * NBITS_PER_KMER;
+    u_int64_t estimatedBloomSize = (u_int64_t) ((double)solidFileSize * NBITS_PER_KMER);
     if (estimatedBloomSize ==0 ) { estimatedBloomSize = 1000; }
 
     /** We create the kmers iterator from the solid file. */

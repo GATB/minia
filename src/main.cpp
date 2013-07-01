@@ -41,7 +41,7 @@ int main (int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    catch (system::Exception& e)
+    catch (gatb::core::system::Exception& e)
     {
         cerr << "EXCEPTION: " << e.getMessage() << endl;
         return EXIT_FAILURE;
