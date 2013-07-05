@@ -37,26 +37,15 @@ using namespace gatb::core::kmer::impl;
 
 class Minia : public misc::impl::Tool
 {
-private:
-
-    size_t          _kmerSize;
-    std::string     _solidFile;
-
 public:
 
     /** */
     Minia ();
 
-    /** */
-    static const char* STR_URI_DEBLOOM;
-
 private:
 
     /** */
     void execute ();
-
-    /** */
-    virtual collections::impl::Bloom<kmer_type>* createBloom ();
 };
 
 /********************************************************************************/
