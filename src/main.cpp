@@ -5,47 +5,13 @@
  *   Copyright (c) INRIA, CeCILL license, 2013                               *
  *****************************************************************************/
 
-#include <BankConverter.hpp>
-#include <DSK.hpp>
-#include <Minia.hpp>
-
-#include <gatb/system/impl/System.hpp>
-#include <gatb/tools/misc/impl/Property.hpp>
-#include <gatb/tools/misc/impl/Tool.hpp>
-
 /********************************************************************************/
 
-using namespace gatb::core::tools;
-using namespace std;
+#include <gatb/gatb_core.hpp>
 
 /********************************************************************************/
 
 int main (int argc, char* argv[])
 {
-    // We define a try/catch block in case some method fails
-    try
-    {
-        misc::impl::ToolComposite tool;
-
-        tool.add (new BankConverter ());
-        tool.add (new DSK           ());
-        tool.add (new Minia         ());
-
-        tool.run (argc, argv);
-    }
-
-    catch (misc::impl::OptionFailure& e)
-    {
-        e.getParser().displayErrors (stdout);
-        e.getParser().displayHelp   (stdout);
-        return EXIT_FAILURE;
-    }
-
-    catch (gatb::core::system::Exception& e)
-    {
-        cerr << "EXCEPTION: " << e.getMessage() << endl;
-        return EXIT_FAILURE;
-    }
-
     return EXIT_SUCCESS;
 }
