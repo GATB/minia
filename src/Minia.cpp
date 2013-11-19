@@ -76,7 +76,10 @@ void Minia::assemble (const Graph& graph)
         getInput()->getStr(STR_URI_OUTPUT) :
         System::file().getBaseName (getInput()->getStr(STR_URI_DB)) + ".contigs";
 
-    ofstream file (output);
+    /** We create the output bank. Note that we could make this a little bit prettier
+     *  => possibility to save the contigs in specific output format (other than fasta).  */
+    IBank* outputBank = new Bank (output);
+    LOCAL (outputBank);
 
     /** We get an iterator over the branching nodes. */
     ProgressIterator<BranchingNode,ProgressTimer> itBranching (graph.iterator<BranchingNode>(), "assembly");
@@ -95,6 +98,8 @@ void Minia::assemble (const Graph& graph)
     u_int64_t maxContigLenLeft  = 0;
     u_int64_t maxContigLenRight = 0;
 
+    Sequence seq (Data::ASCII);
+
     /** We loop over the branching nodes.
      * IMPORTANT... by now, use a dispatcher with only 1 thread since the terminator is not thread safe. */
     Dispatcher(1).iterate (itBranching, [&] (const Node& node)
@@ -103,37 +108,34 @@ void Minia::assemble (const Graph& graph)
 
         DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
 
+        // keep looping while a starting kmer is available from this kmer
+        // everything will be marked during the traversal()'s
         while (traversal.findStartingNode (node, startingNode) == true)
         {
+            /** We compute right and left extensions of the starting node. */
             int lenRight = traversal.traverse (startingNode, DIR_OUTCOMING, consensusRight);
             int lenLeft  = traversal.traverse (startingNode, DIR_INCOMING,  consensusLeft);
 
-            int len = graph.getKmerSize() + lenRight + lenLeft;
+            int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
-            if (len >= 2*graph.getKmerSize()+1)
+            /** We keep this contig if its size is long enough. */
+            if (lenTotal >= 2*graph.getKmerSize()+1)
             {
-                if (startingNode.strand==STRAND_FORWARD)
-                {
-                    dump (graph, startingNode, len, nbContigs, consensusRight, consensusLeft, file);
-                }
-                else
-                {
-                    dump (graph, startingNode, len, nbContigs, consensusLeft, consensusRight, file);
-                }
+                /** We create the contig sequence. */
+                buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
+
+                /** We add the sequence into the output bank. */
+                outputBank->insert (seq);
 
                 nbContigs += 1;
-                totalNt   +=  len;
+                totalNt   += lenTotal;
 
-                if (len > maxContigLen)             { maxContigLen      = len;      }
-                if (lenLeft    > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;  }
-                if (lenRight   > maxContigLenRight) { maxContigLenRight = lenRight; }
+                if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
+                if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
+                if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
             }
         }
     });
-
-    file.close ();
-
-    //terminator.dump ();
 
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
@@ -154,31 +156,38 @@ void Minia::assemble (const Graph& graph)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void Minia::dump (
+void Minia::buildSequence (
     const Graph& graph,
     const Node& startingNode,
     size_t length,
     size_t nbContigs,
     const std::vector<Nucleotide>& consensusRight,
     const std::vector<Nucleotide>& consensusLeft,
-    std::ostream& file
+    Sequence& seq
 )
 {
     /** Shortcuts. */
+    Data&  data     = seq.getData();
     size_t lenRight = consensusRight.size();
     size_t lenLeft  = consensusLeft.size ();
 
-    /** We dump the sequence comment. */
-    file << ">" << nbContigs << "__len__" << length << " " << endl;
+    /** We set the sequence comment. */
+    stringstream ss1;
+    ss1 << nbContigs << "__len__" << length << " ";
+    seq._comment = ss1.str();
+
+    /** We set the data length. */
+    seq.getData().resize (length);
+
+    size_t idx=0;
 
     /** We dump the left part. */
-    for (size_t i=0; i<lenLeft;  i++)  {  file << ascii (reverse(consensusLeft [lenLeft-i-1])); }
+    for (size_t i=0; i<lenLeft;  i++)  {  data[idx++] = ascii (reverse(consensusLeft [lenLeft-i-1])); }
 
     /** We dump the starting node. */
-    file << graph.toString (startingNode, startingNode.strand, 1);
+    string node = graph.toString (startingNode, startingNode.strand, 1);
+    for (size_t i=0; i<node.size(); i++)  { data[idx++] = node[i]; }
 
     /** We dump the right part. */
-    for (size_t i=0; i<lenRight; i++)  {  file << ascii (consensusRight[i]);           }
-
-    file << endl;
+    for (size_t i=0; i<lenRight; i++)  {  data[idx++] = ascii (consensusRight[i]); }
 }

@@ -32,14 +32,14 @@ private:
     void assemble (const Graph& graph);
 
     /** */
-    void dump (
+    void buildSequence (
         const Graph& graph,
         const Node& startingNode,
         size_t length,
         size_t nbContigs,
         const std::vector<Nucleotide>& consensusRight,
         const std::vector<Nucleotide>& consensusLeft,
-        std::ostream& st
+        Sequence& seq
     );
 };
 

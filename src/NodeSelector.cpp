@@ -55,7 +55,11 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
             {
                 if (len_extension++ > 2*_graph.getKmerSize())
                 {
+                    /** NOTE: By convention, the returned node is understood as the forward part of the node in the
+                     * bi-directional De Bruijn graph.  */
                     startingNode.strand = STRAND_FORWARD;
+
+                    /** Ok, we found a starting point. */
                     return true;
                 }
 
