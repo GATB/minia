@@ -27,6 +27,20 @@ private:
 
     /** \copydoc Tool::execute. */
     void  execute ();
+
+    /** */
+    void assemble (const Graph& graph);
+
+    /** */
+    void dump (
+        const Graph& graph,
+        const Node& startingNode,
+        size_t length,
+        size_t nbContigs,
+        const std::vector<Nucleotide>& consensusRight,
+        const std::vector<Nucleotide>& consensusLeft,
+        std::ostream& st
+    );
 };
 
 /********************************************************************************/
