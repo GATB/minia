@@ -23,6 +23,11 @@ using namespace std;
 
 #define DEBUG(a)   //a
 
+/********************************************************************************/
+
+static const char* STR_TRAVERSAL_KIND = "-traversal";
+static const char* STR_STARTER_KIND   = "-starter";
+
 /*********************************************************************
 ** METHOD  :
 ** PURPOSE :
@@ -34,10 +39,12 @@ using namespace std;
 Minia::Minia () : Tool ("minia")
 {
     /** We add options specific to DSK. */
-    getParser()->add (new OptionOneParam (STR_URI_DB,          "databank uri",                         true));
-    getParser()->add (new OptionOneParam (STR_URI_OUTPUT,      "output file",                          false));
-    getParser()->add (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                 false,  "1000"  ));
-    getParser()->add (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",             false,  "0"     ));
+    getParser()->add (new OptionOneParam (STR_URI_DB,          "databank uri",                          true));
+    getParser()->add (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
+    getParser()->add (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "1000"      ));
+    getParser()->add (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
+    getParser()->add (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
+    getParser()->add (new OptionOneParam (STR_STARTER_KIND,    "starting node ('simple')",              false,  "simple"    ));
 }
 
 /*********************************************************************
@@ -87,7 +94,9 @@ void Minia::assemble (const Graph& graph)
     /** We create the Terminator. */
     BranchingTerminator terminator (graph);
 
-    SimplePathsTraversal traversal (graph, terminator);
+    /** We create the Traversal instance according to the user choice. */
+    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator);
+    LOCAL (traversal);
 
     std::vector<Nucleotide> consensusRight;
     std::vector<Nucleotide> consensusLeft;
@@ -110,11 +119,11 @@ void Minia::assemble (const Graph& graph)
 
         // keep looping while a starting kmer is available from this kmer
         // everything will be marked during the traversal()'s
-        while (traversal.findStartingNode (node, startingNode) == true)
+        while (traversal->findStartingNode (node, startingNode) == true)
         {
             /** We compute right and left extensions of the starting node. */
-            int lenRight = traversal.traverse (startingNode, DIR_OUTCOMING, consensusRight);
-            int lenLeft  = traversal.traverse (startingNode, DIR_INCOMING,  consensusLeft);
+            int lenRight = traversal->traverse (startingNode, DIR_OUTCOMING, consensusRight);
+            int lenLeft  = traversal->traverse (startingNode, DIR_INCOMING,  consensusLeft);
 
             int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
@@ -137,10 +146,12 @@ void Minia::assemble (const Graph& graph)
         }
     });
 
+    //terminator.dump ();
+
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
     getInfo()->add (2, "uri",               "%s", getInput()->getStr(STR_URI_DB).c_str());
-    getInfo()->add (2, "traversal",         "%s", traversal.getName().c_str());
+    getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
     getInfo()->add (2, "nb_contig",         "%d", nbContigs);
     getInfo()->add (2, "nt_assembled",      "%d", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);

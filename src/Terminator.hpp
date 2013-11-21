@@ -101,6 +101,8 @@ public:
 
     virtual void reset () = 0;
 
+    virtual void dump () = 0;
+
 protected:
 
     const Graph& _graph;

@@ -15,7 +15,7 @@ using namespace std;
 
 /********************************************************************************/
 
-#define DEBUG(a)   a
+#define DEBUG(a)   //a
 
 /*********************************************************************
 ** METHOD  :
@@ -55,10 +55,10 @@ Frontline::Frontline (
     Terminator&       terminator,
     const Node&       startingNode,
     const Node&       previousNode,
-    std::set<Node>&   all_involved_extensions
+    std::set<Node>*   all_involved_extensions
 ) :
     _direction(direction), _graph(graph), _terminator(terminator), _depth(0),
-    _all_involved_extensions(&all_involved_extensions)
+    _all_involved_extensions(all_involved_extensions)
 {
     _already_frontlined.insert (startingNode.kmer);
     _already_frontlined.insert (previousNode.kmer);
@@ -97,24 +97,23 @@ bool Frontline::go_next_depth()
             const Edge& edge     = edges[i];
             const Node& neighbor = edge.to;
 
+            // test if that node hasn't already been explored
+            if (_already_frontlined.find (neighbor.kmer) != _already_frontlined.end())  { continue; }
+
             // if this bubble contains a marked (branching) kmer, stop everyone at once (to avoid redundancy)
             if (_terminator.is_branching (neighbor) &&  _terminator.is_marked_branching(neighbor))  {  return false;  }
 
-            // test if that node hasn't already been explored
-            if (_already_frontlined.find (neighbor.kmer) == _already_frontlined.end())
-            {
-                // propagate information where this node comes from
-                Nucleotide from_nt = (current_node.nt == NUCL_UNKNOWN) ? edge.nt : current_node.nt;
+            // propagate information where this node comes from
+            Nucleotide from_nt = (current_node.nt == NUCL_UNKNOWN) ? edge.nt : current_node.nt;
 
-                /** We add the new node to the new front line. */
-                new_frontline.push (NodeNt (neighbor, from_nt));
+            /** We add the new node to the new front line. */
+            new_frontline.push (NodeNt (neighbor, from_nt));
 
-                /** We memorize the new node. */
-                _already_frontlined.insert (neighbor.kmer);
+            /** We memorize the new node. */
+            _already_frontlined.insert (neighbor.kmer);
 
-                // since this extension is validated, insert into the list of involved ones
-                if (_all_involved_extensions != 0)  {  _all_involved_extensions->insert (neighbor);  }
-            }
+            // since this extension is validated, insert into the list of involved ones
+            if (_all_involved_extensions != 0)  {  _all_involved_extensions->insert (neighbor);  }
         }
     }
 
@@ -132,11 +131,47 @@ bool Frontline::go_next_depth()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
+FrontlineBranching::FrontlineBranching (
+    Direction         direction,
+    const Graph&      graph,
+    Terminator&       terminator,
+    const Node&       startingNode,
+    const Node&       previousNode,
+    std::set<Node>*   all_involved_extensions
+)  : Frontline (direction,graph,terminator,startingNode,previousNode,all_involved_extensions)
+{
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+FrontlineBranching::FrontlineBranching (
+    Direction         direction,
+    const Graph&      graph,
+    Terminator&       terminator,
+    const Node&       startingNode
+) : Frontline(direction,graph,terminator,startingNode)
+{
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
 // new code, not in monument, to detect any in-branching longer than 3k
 bool FrontlineBranching::check (const Node& node)
 {
     /** We loop the neighbors nodes of the current node. */
-    Graph::Vector<Node> neighbors = _graph.neighbors<Node> (node, DIR_INCOMING);
+    Graph::Vector<Node> neighbors = _graph.neighbors<Node> (node, reverse(_direction));
 
     for (size_t i=0; i<neighbors.size(); i++)
     {
@@ -149,10 +184,9 @@ bool FrontlineBranching::check (const Node& node)
         if (_already_frontlined.find (neighbor.kmer) != _already_frontlined.end())  {   continue;  }
 
         // create a new frontline inside this frontline to check for large in-branching (i know, we need to go deeper, etc..)
-        Frontline frontline (DIR_INCOMING, _graph, _terminator, neighbor, node, *_all_involved_extensions);
+        Frontline frontline (reverse(_direction), _graph, _terminator, neighbor, node, _all_involved_extensions);
 
-        do
-        {
+        do  {
             bool should_continue = frontline.go_next_depth();
 
             if (!should_continue)  {  break;  }

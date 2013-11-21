@@ -35,6 +35,9 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
         /** We loop these neighbors. */
         for (size_t i=0; i<neighbors.size(); i++)
         {
+            /** make sure this kmer isnt branching */
+            if (_terminator.is_branching (neighbors[i].to))  { continue; }
+
             if (_terminator.is_marked (neighbors[i].to))  {  continue;  }
 
             /** only start from an unmarked nt/strand combo */
@@ -42,9 +45,6 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
 
             /** We mark the current neighbor edge. */
             _terminator.mark (neighbors[i]);
-
-            /** make sure this kmer isnt branching */
-            if (_terminator.is_branching (neighbors[i].to))  { continue; }
 
             size_t len_extension = 0;
 

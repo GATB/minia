@@ -88,25 +88,24 @@ void BranchingTerminator::mark (const Edge& edge)
 
     Nucleotide nt = edge.nt;
 
-
-if (hack)
-{
-    if (edge.direction == DIR_INCOMING)
-    {
-        size_t span = _graph.getKmerSize();
-
-        if (edge.to.strand == STRAND_FORWARD)
-        {
-            nt = ((Nucleotide) (edge.to.kmer[span-1]));
-            nt = (Nucleotide) incomingTable[nt];
-        }
-        else
-        {
-            nt = reverse ((Nucleotide) (edge.to.kmer[0]));
-            nt = (Nucleotide) incomingTable[nt];
-        }
-    }
-}
+	if (hack)
+	{
+	    if (edge.direction == DIR_INCOMING)
+	    {
+	        size_t span = _graph.getKmerSize();
+	
+	        if (edge.to.strand == STRAND_FORWARD)
+	        {
+	            nt = ((Nucleotide) (edge.to.kmer[span-1]));
+	            nt = (Nucleotide) incomingTable[nt];
+	        }
+	        else
+	        {
+	            nt = reverse ((Nucleotide) (edge.to.kmer[0]));
+	            nt = (Nucleotide) incomingTable[nt];
+	        }
+	    }
+	}
 
     int delta = 0;
 
@@ -201,8 +200,10 @@ void BranchingTerminator::mark (const Node& node)
         Graph::Vector<Edge> neighbors = _graph.neighbors<Edge> (node, dir);
 
         /** We loop the branching neighbors. */
-        for (size_t i=0; i<neighbors.size() && is_indexed(neighbors[i].to); i++)
+        for (size_t i=0; i<neighbors.size(); i++)
         {
+            if (is_indexed(neighbors[i].to)==false)  { continue; }
+
             /** We mark this edge (reversed first, in order to have the branching as the 'from' node) */
             mark (neighbors[i].reverse());
             could_mark = true;

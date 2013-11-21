@@ -48,7 +48,7 @@ public:
         Terminator&       terminator,
         const Node&       startingNode,
         const Node&       previousNode,
-        std::set<Node>&   all_involved_extensions
+        std::set<Node>*   all_involved_extensions = 0
     );
 
     /** Constructor. */
@@ -104,8 +104,8 @@ public:
         Terminator&       terminator,
         const Node&       startingNode,
         const Node&       previousNode,
-        std::set<Node>&   all_involved_extensions
-    )  : Frontline (direction,graph,terminator,startingNode,previousNode,all_involved_extensions) {}
+        std::set<Node>*   all_involved_extensions
+    );
 
     /** Constructor. */
     FrontlineBranching (
@@ -113,7 +113,7 @@ public:
         const Graph&      graph,
         Terminator&       terminator,
         const Node&       startingNode
-    ) : Frontline(direction,graph,terminator,startingNode) {}
+    );
 
 private:
 
