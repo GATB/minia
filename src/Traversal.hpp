@@ -13,6 +13,7 @@
 #include <gatb/gatb_core.hpp>
 #include <Utils.hpp>
 #include <Terminator.hpp>
+#include <NodeSelector.hpp>
 #include <set>
 
 /********************************************************************************/
@@ -22,7 +23,12 @@ class Traversal : public SmartPointer
 public:
 
     /** */
-    static Traversal* create (const std::string& type, const Graph& graph, Terminator& terminator);
+    static Traversal* create (
+        const std::string& type,
+        const Graph& graph,
+        Terminator& terminator,
+        INodeSelector* selector
+    );
 
     /** */
     virtual ~Traversal();
@@ -39,10 +45,20 @@ public:
 protected:
 
     /** */
-    Traversal (const Graph& graph, Terminator& terminator, int maxlen, int max_depth, int max_breadth);
+    Traversal (
+        const Graph& graph,
+        Terminator& terminator,
+        INodeSelector* selector,
+        int maxlen,
+        int max_depth,
+        int max_breadth
+    );
 
     const Graph& graph;
     Terminator&  terminator;
+
+    INodeSelector* _selector;
+    void setSelector (INodeSelector* selector)  { SP_SETATTR(selector); }
 
     int maxlen;
     int max_depth;
@@ -65,6 +81,7 @@ public:
     SimplePathsTraversal (
         const Graph& graph,
         Terminator& terminator,
+        INodeSelector* selector,
         int maxlen      = 1000000,
         int max_depth   = 500,
         int max_breadth = 20
@@ -86,6 +103,7 @@ public:
     MonumentTraversal (
         const Graph& graph,
         Terminator& terminator,
+        INodeSelector* selector,
         int maxlen      = 1000000,
         int max_depth   = 500,
         int max_breadth = 20

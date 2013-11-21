@@ -44,7 +44,7 @@ Minia::Minia () : Tool ("minia")
     getParser()->add (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "1000"      ));
     getParser()->add (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
     getParser()->add (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
-    getParser()->add (new OptionOneParam (STR_STARTER_KIND,    "starting node ('simple')",              false,  "simple"    ));
+    getParser()->add (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
 }
 
 /*********************************************************************
@@ -94,8 +94,11 @@ void Minia::assemble (const Graph& graph)
     /** We create the Terminator. */
     BranchingTerminator terminator (graph);
 
+    /** We create the starting node selector according to the user choice. */
+    INodeSelector* selector = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, terminator);
+
     /** We create the Traversal instance according to the user choice. */
-    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator);
+    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator, selector);
     LOCAL (traversal);
 
     std::vector<Nucleotide> consensusRight;
@@ -152,6 +155,7 @@ void Minia::assemble (const Graph& graph)
     getInfo()->add (1, "stats");
     getInfo()->add (2, "uri",               "%s", getInput()->getStr(STR_URI_DB).c_str());
     getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
+    getInfo()->add (2, "start_selector",    "%s", selector->getName().c_str());
     getInfo()->add (2, "nb_contig",         "%d", nbContigs);
     getInfo()->add (2, "nt_assembled",      "%d", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);

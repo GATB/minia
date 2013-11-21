@@ -30,13 +30,18 @@ extern bool hack;
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-Traversal* Traversal::create (const std::string& type, const Graph& graph, Terminator& terminator)
+Traversal* Traversal::create (
+    const std::string&  type,
+    const Graph&        graph,
+    Terminator&         terminator,
+    INodeSelector*      selector
+)
 {
     Traversal* result = 0;
 
-         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator); }
-    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator); }
-    else                          { result = new MonumentTraversal    (graph, terminator); }
+         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator, selector); }
+    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator, selector); }
+    else                          { result = new MonumentTraversal    (graph, terminator, selector); }
 
     return result;
 }
@@ -52,12 +57,15 @@ Traversal* Traversal::create (const std::string& type, const Graph& graph, Termi
 Traversal::Traversal (
     const Graph& graph,
     Terminator& terminator,
+    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : graph(graph), terminator(terminator), maxlen(1000000),max_depth(500),max_breadth(20)
+    : graph(graph), terminator(terminator), _selector(0),
+      maxlen(1000000),max_depth(500),max_breadth(20)
 {
+    setSelector (selector);
 }
 
 /*********************************************************************
@@ -70,6 +78,7 @@ Traversal::Traversal (
 *********************************************************************/
 Traversal::~Traversal ()
 {
+    setSelector (0);
 }
 
 /*********************************************************************
@@ -82,9 +91,7 @@ Traversal::~Traversal ()
 *********************************************************************/
 bool Traversal::findStartingNode (const Node& from, Node& to)
 {
-    NodeSelectorSimplePath startSelector (graph, terminator);
-
-    return startSelector.select (from, to);
+    return _selector->select (from, to);
 }
 
 /*********************************************************************
@@ -172,11 +179,12 @@ int Traversal::traverse (const Node& startingNode, Direction dir, std::vector<Nu
 SimplePathsTraversal::SimplePathsTraversal (
     const Graph& graph,
     Terminator& terminator,
+    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : Traversal (graph, terminator, maxlen, max_depth, max_breadth)
+    : Traversal (graph, terminator, selector, maxlen, max_depth, max_breadth)
 {
 }
 
@@ -220,11 +228,12 @@ char SimplePathsTraversal::avance (
 MonumentTraversal::MonumentTraversal (
     const Graph& graph,
     Terminator& terminator,
+    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : Traversal (graph, terminator, maxlen, max_depth, max_breadth)
+    : Traversal (graph, terminator, selector, maxlen, max_depth, max_breadth)
 {
 }
 

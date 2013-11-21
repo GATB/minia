@@ -16,13 +16,42 @@
 /********************************************************************************/
 
 /** */
-class INodeSelector
+class INodeSelector : public SmartPointer
 {
 public:
 
     virtual ~INodeSelector()  {}
 
     virtual bool select (const Node& source, Node& result) = 0;
+
+    virtual std::string getName () const = 0;
+};
+
+/********************************************************************************/
+
+class NodeSelectorFactory
+{
+public:
+
+    static NodeSelectorFactory& singleton()  { static NodeSelectorFactory instance; return instance; }
+
+    INodeSelector* create (const std::string& type, const Graph& graph, Terminator& terminator);
+};
+
+/********************************************************************************/
+
+/** Abstract factorization. */
+
+class NodeSelectorAbstract : public INodeSelector
+{
+public:
+
+    NodeSelectorAbstract (const Graph& graph, Terminator& terminator)
+        : _graph(graph), _terminator(terminator) {}
+
+protected:
+    const Graph&  _graph;
+    Terminator&   _terminator;
 };
 
 /********************************************************************************/
@@ -36,19 +65,47 @@ public:
  *  solution:
  *      detect a 2k+2 simple path (anything NOT deadend or snp) around the branching kmer and start to extend from it
  */
-class NodeSelectorSimplePath : public INodeSelector
+class NodeSelectorSimplePath : public NodeSelectorAbstract
 {
 public:
 
     NodeSelectorSimplePath (const Graph& graph, Terminator& terminator)
-        : _graph(graph), _terminator(terminator) {}
+        : NodeSelectorAbstract (graph, terminator) {}
 
     bool select (const Node& source, Node& result);
 
-private:
+    std::string getName () const  { return "simple"; }
+};
 
-    const Graph&  _graph;
-    Terminator&   _terminator;
+/********************************************************************************/
+
+class NodeSelectorImproved : public NodeSelectorAbstract
+{
+public:
+
+    NodeSelectorImproved (const Graph& graph, Terminator& terminator)
+        : NodeSelectorAbstract (graph, terminator) {}
+
+    bool select (const Node& source, Node& result);
+
+    std::string getName () const  { return "improved"; }
+};
+
+/********************************************************************************/
+
+class NodeSelectorBest : public NodeSelectorAbstract
+{
+public:
+
+    NodeSelectorBest (const Graph& graph, Terminator& terminator)
+        : NodeSelectorAbstract (graph, terminator),  _firstSelector (graph, terminator) {}
+
+    bool select (const Node& source, Node& result);
+
+    std::string getName () const  { return "best"; }
+
+private:
+    NodeSelectorImproved _firstSelector;
 };
 
 /********************************************************************************/
