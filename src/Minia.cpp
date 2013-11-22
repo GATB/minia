@@ -113,17 +113,16 @@ void Minia::assemble (const Graph& graph)
 
     Sequence seq (Data::ASCII);
 
-    /** We loop over the branching nodes.
-     * IMPORTANT... by now, use a dispatcher with only 1 thread since the terminator is not thread safe. */
-    Dispatcher(1).iterate (itBranching, [&] (const Node& node)
+    /** We loop over the branching nodes. */
+    for (itBranching.first(); !itBranching.isDone(); itBranching.next())
     {
-        Node startingNode;
-
         DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
+
+        Node startingNode;
 
         // keep looping while a starting kmer is available from this kmer
         // everything will be marked during the traversal()'s
-        while (starter->select (node, startingNode) == true)
+        while (starter->select (itBranching.item(), startingNode) == true)
         {
             /** We compute right and left extensions of the starting node. */
             int lenRight = traversal->traverse (startingNode, DIR_OUTCOMING, consensusRight);
@@ -147,8 +146,10 @@ void Minia::assemble (const Graph& graph)
                 if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
                 if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
             }
-        }
-    });
+
+        } /* end of  while (starter->select() */
+
+    } /* end of for (itBranching.first() */
 
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
