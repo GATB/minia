@@ -101,7 +101,7 @@ bool Frontline::go_next_depth()
             if (_already_frontlined.find (neighbor.kmer) != _already_frontlined.end())  { continue; }
 
             // if this bubble contains a marked (branching) kmer, stop everyone at once (to avoid redundancy)
-            if (_terminator.is_branching (neighbor) &&  _terminator.is_marked_branching(neighbor))  {  return false;  }
+            if (_terminator.isEnabled() && _terminator.is_branching (neighbor) &&  _terminator.is_marked_branching(neighbor))  {  return false;  }
 
             // propagate information where this node comes from
             Nucleotide from_nt = (current_node.nt == NUCL_UNKNOWN) ? edge.nt : current_node.nt;
