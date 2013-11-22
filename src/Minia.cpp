@@ -95,10 +95,11 @@ void Minia::assemble (const Graph& graph)
     BranchingTerminator terminator (graph);
 
     /** We create the starting node selector according to the user choice. */
-    INodeSelector* selector = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, terminator);
+    INodeSelector* starter = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, terminator);
+    LOCAL (starter);
 
     /** We create the Traversal instance according to the user choice. */
-    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator, selector);
+    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator);
     LOCAL (traversal);
 
     std::vector<Nucleotide> consensusRight;
@@ -122,7 +123,7 @@ void Minia::assemble (const Graph& graph)
 
         // keep looping while a starting kmer is available from this kmer
         // everything will be marked during the traversal()'s
-        while (traversal->findStartingNode (node, startingNode) == true)
+        while (starter->select (node, startingNode) == true)
         {
             /** We compute right and left extensions of the starting node. */
             int lenRight = traversal->traverse (startingNode, DIR_OUTCOMING, consensusRight);
@@ -149,13 +150,11 @@ void Minia::assemble (const Graph& graph)
         }
     });
 
-    //terminator.dump ();
-
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
     getInfo()->add (2, "uri",               "%s", getInput()->getStr(STR_URI_DB).c_str());
     getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
-    getInfo()->add (2, "start_selector",    "%s", selector->getName().c_str());
+    getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
     getInfo()->add (2, "nb_contig",         "%d", nbContigs);
     getInfo()->add (2, "nt_assembled",      "%d", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);
