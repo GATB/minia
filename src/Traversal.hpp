@@ -26,8 +26,7 @@ public:
     static Traversal* create (
         const std::string& type,
         const Graph& graph,
-        Terminator& terminator,
-        INodeSelector* selector
+        Terminator& terminator
     );
 
     /** */
@@ -35,9 +34,6 @@ public:
 
     /** */
     virtual std::string getName() const = 0;
-
-    /** */
-    bool findStartingNode (const Node& from, Node& to);
 
     /** */
     int traverse (const Node& node, Direction dir, std::vector<Nucleotide>& resulting_sequence);
@@ -48,7 +44,6 @@ protected:
     Traversal (
         const Graph& graph,
         Terminator& terminator,
-        INodeSelector* selector,
         int maxlen,
         int max_depth,
         int max_breadth
@@ -56,9 +51,6 @@ protected:
 
     const Graph& graph;
     Terminator&  terminator;
-
-    INodeSelector* _selector;
-    void setSelector (INodeSelector* selector)  { SP_SETATTR(selector); }
 
     int maxlen;
     int max_depth;
@@ -81,7 +73,6 @@ public:
     SimplePathsTraversal (
         const Graph& graph,
         Terminator& terminator,
-        INodeSelector* selector,
         int maxlen      = 1000000,
         int max_depth   = 500,
         int max_breadth = 20
@@ -103,13 +94,20 @@ public:
     MonumentTraversal (
         const Graph& graph,
         Terminator& terminator,
-        INodeSelector* selector,
         int maxlen      = 1000000,
         int max_depth   = 500,
         int max_breadth = 20
     );
 
     std::string getName() const  { return std::string ("monument"); }
+
+    bool explore_branching (
+        const Node& node,
+        Direction dir,
+        PATH& consensus,
+        const Node& previousNode,
+        std::set<Node>& all_involved_extensions
+    );
 
 private:
 
@@ -122,13 +120,6 @@ private:
         const Node& previousNode
     );
 
-    bool explore_branching (
-        const Node& node,
-        Direction dir,
-        PATH& consensus,
-        const Node& previousNode,
-        std::set<Node>& all_involved_extensions
-    );
 
     int find_end_of_branching (
         Direction dir,

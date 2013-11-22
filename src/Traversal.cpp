@@ -33,15 +33,14 @@ extern bool hack;
 Traversal* Traversal::create (
     const std::string&  type,
     const Graph&        graph,
-    Terminator&         terminator,
-    INodeSelector*      selector
+    Terminator&         terminator
 )
 {
     Traversal* result = 0;
 
-         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator, selector); }
-    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator, selector); }
-    else                          { result = new MonumentTraversal    (graph, terminator, selector); }
+         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator); }
+    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator); }
+    else                          { result = new MonumentTraversal    (graph, terminator); }
 
     return result;
 }
@@ -57,15 +56,13 @@ Traversal* Traversal::create (
 Traversal::Traversal (
     const Graph& graph,
     Terminator& terminator,
-    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : graph(graph), terminator(terminator), _selector(0),
+    : graph(graph), terminator(terminator),
       maxlen(1000000),max_depth(500),max_breadth(20)
 {
-    setSelector (selector);
 }
 
 /*********************************************************************
@@ -78,20 +75,6 @@ Traversal::Traversal (
 *********************************************************************/
 Traversal::~Traversal ()
 {
-    setSelector (0);
-}
-
-/*********************************************************************
-** METHOD  :
-** PURPOSE :
-** INPUT   :
-** OUTPUT  :
-** RETURN  :
-** REMARKS :
-*********************************************************************/
-bool Traversal::findStartingNode (const Node& from, Node& to)
-{
-    return _selector->select (from, to);
 }
 
 /*********************************************************************
@@ -179,12 +162,11 @@ int Traversal::traverse (const Node& startingNode, Direction dir, std::vector<Nu
 SimplePathsTraversal::SimplePathsTraversal (
     const Graph& graph,
     Terminator& terminator,
-    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : Traversal (graph, terminator, selector, maxlen, max_depth, max_breadth)
+    : Traversal (graph, terminator, maxlen, max_depth, max_breadth)
 {
 }
 
@@ -228,12 +210,11 @@ char SimplePathsTraversal::avance (
 MonumentTraversal::MonumentTraversal (
     const Graph& graph,
     Terminator& terminator,
-    INodeSelector* selector,
     int maxlen,
     int max_depth,
     int max_breadth
 )
-    : Traversal (graph, terminator, selector, maxlen, max_depth, max_breadth)
+    : Traversal (graph, terminator, maxlen, max_depth, max_breadth)
 {
 }
 
@@ -369,7 +350,7 @@ int MonumentTraversal::find_end_of_branching (
         if (frontline.size() == 0)  {  return 0;  }
 
         // if (frontline.size() == 1) // longer contigs but for some reason, higher mismatch rate
-        if (frontline.size() == 1 &&   !terminator.is_branching(frontline.front().node) )  {   break;  }
+        if (frontline.size() == 1 &&   (!terminator.isEnabled() || !terminator.is_branching(frontline.front().node)) )  {   break;  }
     }
     while (1);
 
@@ -392,9 +373,12 @@ int MonumentTraversal::find_end_of_branching (
 *********************************************************************/
 void MonumentTraversal::mark_extensions (std::set<Node>& extensions_to_mark)
 {
-    for(set<Node>::iterator it = extensions_to_mark.begin(); it != extensions_to_mark.end() ; ++it)
+    if (terminator.isEnabled())
     {
-        terminator.mark (*it);
+        for(set<Node>::iterator it = extensions_to_mark.begin(); it != extensions_to_mark.end() ; ++it)
+        {
+            terminator.mark (*it);
+        }
     }
 }
 
