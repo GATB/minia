@@ -89,6 +89,8 @@ public:
 
     const Graph& getGraph() const { return _graph; }
 
+    virtual bool isEnabled () const { return true; }
+
     virtual void mark      (const Edge& edge) = 0;
     virtual bool is_marked (const Edge& edge)  const = 0;
 
@@ -106,8 +108,39 @@ public:
 protected:
 
     const Graph& _graph;
+};
 
-    unsigned char branching_structure (const Node& node);
+
+/********************************************************************************/
+class NullTerminator :  public Terminator
+{
+public:
+
+    static Terminator& singleton()
+    {
+        static Graph dummy;
+        static NullTerminator instance(dummy); return instance;
+    }
+
+    virtual bool isEnabled () const { return false; }
+
+    virtual void mark      (const Edge& edge) {}
+    virtual bool is_marked (const Edge& edge)  const  { return false; };
+
+    virtual void mark      (const Node& node) {}
+    virtual bool is_marked (const Node& node)  const  { return false; }
+
+    virtual bool is_marked_branching (const Node& node) const { return false; }
+
+    virtual bool is_branching (const Node& node) const { return false; }
+
+    virtual void reset () {}
+
+    virtual void dump () {}
+
+private:
+
+    NullTerminator (const Graph& graph) : Terminator(graph)  {}
 };
 
 /********************************************************************************/
