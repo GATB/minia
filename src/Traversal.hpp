@@ -38,6 +38,12 @@ public:
     /** */
     int traverse (const Node& node, Direction dir, std::vector<Nucleotide>& resulting_sequence);
 
+    /** */
+    int getMaxDepth() const  { return max_depth; }
+
+    /** */
+    int getMaxBreadth () const  { return max_breadth; }
+
 protected:
 
     /** */
