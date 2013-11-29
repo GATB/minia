@@ -171,7 +171,9 @@ private:
 
     bool is_indexed (const Node& node) const ;
 
-    AssocSet<Node::Type, Value> branching_kmers;
+    AssocSet<Node::Value, Value> branching_kmers;
+
+    int getDelta (const Edge& edge) const;
 };
 
 /********************************************************************************/

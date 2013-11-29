@@ -40,45 +40,42 @@ INodeSelector* NodeSelectorFactory::create (const std::string& type, const Graph
 *********************************************************************/
 bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNode)
 {
-    /** We try each direction (outcoming and incoming). */
-    foreach_direction (dir)
+
+    /** We retrieve the neighbors of the provided node. */
+    Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(branchingNode.kmer);
+
+    /** We loop these neighbors. */
+    for (size_t i=0; i<neighbors.size(); i++)
     {
-        /** We retrieve the neighbors of the provided node. */
-        Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(branchingNode, dir);
+        /** make sure this kmer isnt branching */
+        if (_terminator.is_branching (neighbors[i].to))  {  continue;  }
 
-        /** We loop these neighbors. */
-        for (size_t i=0; i<neighbors.size(); i++)
+        if (_terminator.is_marked (neighbors[i].to))  {  continue;  }
+
+        /** only start from an unmarked nt/strand combo */
+        if (_terminator.is_marked (neighbors[i]))  {  continue;  }
+
+        /** We mark the current neighbor edge. */
+        _terminator.mark (neighbors[i]);
+
+        size_t len_extension = 0;
+
+        /** We loop successive node on a simple path. */
+        Graph::Iterator<Node> itNodes = GraphHelper(_graph).simplePathIterator<Node> (neighbors[i].to, neighbors[i].direction);
+
+        for (itNodes.first(); !itNodes.isDone(); itNodes.next())
         {
-            /** make sure this kmer isnt branching */
-            if (_terminator.is_branching (neighbors[i].to))  { continue; }
-
-            if (_terminator.is_marked (neighbors[i].to))  {  continue;  }
-
-            /** only start from an unmarked nt/strand combo */
-            if (_terminator.is_marked (neighbors[i]))  { continue;  }
-
-            /** We mark the current neighbor edge. */
-            _terminator.mark (neighbors[i]);
-
-            size_t len_extension = 0;
-
-            /** We loop successive node on a simple path. */
-            Graph::Iterator<Node> itNodes = GraphHelper(_graph).simplePathIterator<Node> (neighbors[i].to, dir);
-
-            for (itNodes.first(); !itNodes.isDone(); itNodes.next())
+            if (len_extension++ > 2*_graph.getKmerSize())
             {
-                if (len_extension++ > 2*_graph.getKmerSize())
-                {
-                    /** NOTE: By convention, the returned node is understood as the forward part of the node in the
-                     * bi-directional De Bruijn graph.  */
-                    startingNode.strand = STRAND_FORWARD;
+                /** NOTE: By convention, the returned node is understood as the forward part of the node in the
+                 * bi-directional De Bruijn graph.  */
+                startingNode.strand = STRAND_FORWARD;
 
-                    /** Ok, we found a starting point. */
-                    return true;
-                }
-
-                startingNode = itNodes.item();
+                /** Ok, we found a starting point. */
+                return true;
             }
+
+            startingNode = itNodes.item();
         }
     }
 
@@ -95,37 +92,33 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
 *********************************************************************/
 bool NodeSelectorImproved::select (const Node& source, Node& result)
 {
-    /** We try each direction (outcoming and incoming). */
-    foreach_direction (dir)
+    /** We retrieve the neighbors of the provided node. */
+    Graph::Vector<Node> neighbors = _graph.neighbors<Node>(source.kmer);
+
+    /** We loop these neighbors. */
+    for (size_t i=0; i<neighbors.size(); i++)
     {
-        /** We retrieve the neighbors of the provided node. */
-        Graph::Vector<Node> neighbors = _graph.neighbors<Node>(source, dir);
+        /** Shortcut. */
+        Node& node = neighbors[i];
 
-        /** We loop these neighbors. */
-        for (size_t i=0; i<neighbors.size(); i++)
-        {
-            /** Shortcut. */
-            Node& node = neighbors[i];
+        // alright let's use this convention now:
+        // to select new kmers: mark non-branching neighbors of branching nodes
+        // to mark as used in assembly: mark branching nodes
 
-            // alright let's use this convention now:
-            // to select new kmers: mark non-branching neighbors of branching nodes
-            // to mark as used in assembly: mark branching nodes
+        // only start from a non-branching k-mer
+        if (_terminator.is_branching(node))  { continue;  }
 
-            // only start from a non-branching k-mer
-            if (_terminator.is_branching(node))  { continue;  }
+        if (_terminator.is_marked(node))     { continue;  }
 
-            if (_terminator.is_marked(node))     { continue;  }
+        _terminator.mark(node);
 
-            _terminator.mark(node);
+        result = node;
 
-            result = node;
+        /** NOTE: By convention, the returned node is understood as the forward part of the node in the
+         * bi-directional De Bruijn graph.  */
+        result.strand = STRAND_FORWARD;
 
-            /** NOTE: By convention, the returned node is understood as the forward part of the node in the
-             * bi-directional De Bruijn graph.  */
-            result.strand = STRAND_FORWARD;
-
-            return true;
-        }
+        return true;
     }
 
     return false;
@@ -141,6 +134,7 @@ bool NodeSelectorImproved::select (const Node& source, Node& result)
 *********************************************************************/
 bool NodeSelectorBest::select (const Node& source, Node& result)
 {
+    Direction dir = DIR_OUTCOMING;
     int sum_depths = 0;
 
     /** First selection. */
@@ -150,13 +144,16 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
     MonumentTraversal monument (_graph, NullTerminator::singleton());
 
     /** We try each direction (outcoming and incoming). */
-    foreach_direction (dir)
+    Node nodes[] = { result, _graph.reverse(result) };
+
+    for (size_t i=0; i<ARRAY_SIZE(nodes); i++)
     {
+        Node current = nodes[i];
         Node previousNode;
         bool hasPreviousNode = false;
 
         // do a BFS to make sure we're not inside a bubble or tip
-        Frontline frontline (dir, _graph, _terminator, result);
+        Frontline frontline (dir, _graph, _terminator, current);
 
         do
         {
@@ -193,10 +190,10 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
                      */
                     set<Node> all_involved_extensions;
                     PATH consensus;
-
-                    if (monument.explore_branching (previousNode, reverse(dir), consensus, currentNode, all_involved_extensions))
+                    
+                    if (monument.explore_branching (_graph.reverse(previousNode), dir, consensus, currentNode, all_involved_extensions))
                     {
-                        if (all_involved_extensions.find(result) != all_involved_extensions.end())
+                        if (all_involved_extensions.find(current) != all_involved_extensions.end())
                         {
                             return false; // starting_kmer is in a tip/bubble starting from current_kmer
                         }

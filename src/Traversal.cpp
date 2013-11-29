@@ -16,11 +16,7 @@
 using namespace std;
 
 /********************************************************************************/
-
 #define DEBUG(a)   //a
-
-extern u_int64_t incomingTable[];
-extern bool hack;
 
 /*********************************************************************
 ** METHOD  :
@@ -40,6 +36,7 @@ Traversal* Traversal::create (
 
          if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator); }
     else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator); }
+    else if (type == "null")      { result = new NullTraversal        (graph, terminator); }
     else                          { result = new MonumentTraversal    (graph, terminator); }
 
     return result;
@@ -360,7 +357,7 @@ int MonumentTraversal::find_end_of_branching (
         return frontline.depth();
     }
 
-    return 0;
+   return 0;
 }
 
 /*********************************************************************
@@ -436,25 +433,6 @@ set<PATH> MonumentTraversal::all_consensuses_between (
         }
 
         Nucleotide& NT = edge.nt;
-
-        if (hack)
-        {
-            if (edge.direction == DIR_INCOMING)
-            {
-                size_t span = graph.getKmerSize();
-
-                if (edge.to.strand == STRAND_FORWARD)
-                {
-                    NT = ((Nucleotide) (edge.to.kmer[span-1]));
-                    NT = (Nucleotide) incomingTable[NT];
-                }
-                else
-                {
-                    NT = reverse ((Nucleotide) (edge.to.kmer[0]));
-                    NT = (Nucleotide) incomingTable[NT];
-                }
-            }
-        }
 
         // generate extended consensus sequence
         PATH extended_consensus(current_consensus);

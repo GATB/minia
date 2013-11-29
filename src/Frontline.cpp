@@ -170,8 +170,11 @@ FrontlineBranching::FrontlineBranching (
 // new code, not in monument, to detect any in-branching longer than 3k
 bool FrontlineBranching::check (const Node& node)
 {
+	/** We reverse the node for the inbranching path. */
+    Node actual = _graph.reverse(node);
+
     /** We loop the neighbors nodes of the current node. */
-    Graph::Vector<Node> neighbors = _graph.neighbors<Node> (node, reverse(_direction));
+    Graph::Vector<Node> neighbors = _graph.neighbors<Node> (actual, (_direction));
 
     for (size_t i=0; i<neighbors.size(); i++)
     {
@@ -184,7 +187,7 @@ bool FrontlineBranching::check (const Node& node)
         if (_already_frontlined.find (neighbor.kmer) != _already_frontlined.end())  {   continue;  }
 
         // create a new frontline inside this frontline to check for large in-branching (i know, we need to go deeper, etc..)
-        Frontline frontline (reverse(_direction), _graph, _terminator, neighbor, node, _all_involved_extensions);
+        Frontline frontline (_direction, _graph, _terminator, neighbor, actual, _all_involved_extensions);
 
         do  {
             bool should_continue = frontline.go_next_depth();

@@ -125,8 +125,8 @@ void Minia::assemble (const Graph& graph)
         while (starter->select (itBranching.item(), startingNode) == true)
         {
             /** We compute right and left extensions of the starting node. */
-            int lenRight = traversal->traverse (startingNode, DIR_OUTCOMING, consensusRight);
-            int lenLeft  = traversal->traverse (startingNode, DIR_INCOMING,  consensusLeft);
+            int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
+            int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING,  consensusLeft);
 
             int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
@@ -200,7 +200,7 @@ void Minia::buildSequence (
     for (size_t i=0; i<lenLeft;  i++)  {  data[idx++] = ascii (reverse(consensusLeft [lenLeft-i-1])); }
 
     /** We dump the starting node. */
-    string node = graph.toString (startingNode, startingNode.strand, 1);
+    string node = graph.toString (startingNode);
     for (size_t i=0; i<node.size(); i++)  { data[idx++] = node[i]; }
 
     /** We dump the right part. */

@@ -87,7 +87,7 @@ protected:
 
     std::set<Node>* _all_involved_extensions;
 
-    std::set<Node::Type> _already_frontlined; // making it simpler now
+    std::set<Node::Value> _already_frontlined; // making it simpler now
 };
 
 /********************************************************************************/
