@@ -189,7 +189,7 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
                      *
                      */
                     set<Node> all_involved_extensions;
-                    PATH consensus;
+                    Path consensus;
                     
                     if (monument.explore_branching (_graph.reverse(previousNode), dir, consensus, currentNode, all_involved_extensions))
                     {
