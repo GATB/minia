@@ -25,7 +25,7 @@ using namespace std;
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-float needleman_wunch (const PATH& a, const PATH& b)
+float needleman_wunch (const Path& a, const Path& b)
 {
     float gap_score = -5;
     float mismatch_score = -5;
@@ -52,7 +52,7 @@ float needleman_wunch (const PATH& a, const PATH& b)
     {
         for (int j = 1; j <= n_b; j++)
         {
-            float match = score[i - 1][j - 1] + nw_score(a[i-1].nt,b[j-1].nt);
+            float match = score[i - 1][j - 1] + nw_score(a[i-1],b[j-1]);
             float del =  score[i - 1][j] + gap_score;
             float insert = score[i][j - 1] + gap_score;
             score[i][j] = max( max(match, del), insert);
@@ -65,9 +65,9 @@ float needleman_wunch (const PATH& a, const PATH& b)
     while (i > 0 && j > 0)
     {
         float score_current = score[i][j], score_diagonal = score[i-1][j-1], score_up = score[i][j-1], score_left = score[i-1][j];
-        if (score_current == score_diagonal + nw_score(a[i-1].nt, b[j-1].nt))
+        if (score_current == score_diagonal + nw_score(a[i-1], b[j-1]))
         {
-            if (a[i-1].nt== b[j-1].nt)
+            if (a[i-1]== b[j-1])
                 identity++;
             i -= 1;
             j -= 1;

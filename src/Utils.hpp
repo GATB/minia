@@ -14,28 +14,7 @@
 
 /********************************************************************************/
 
-struct PATH : public std::vector<Edge>  {};
-
-inline bool operator< (const PATH& a, const PATH& b)
-{
-    size_t N = std::min(a.size(),b.size());
-    for (size_t i=0; i<N; i++)
-    {
-             if (ascii(a[i].nt) < ascii(b[i].nt)) { return true;  }
-        else if (ascii(a[i].nt) > ascii(b[i].nt)) { return false; }
-    }
-    return a.size() < b.size();
-}
-
-inline std::ostream& operator<< (std::ostream& s, const PATH& p)
-{
-    for (size_t i=0; i<p.size(); i++)  { s << ascii(p[i].nt); }
-    return s;
-}
-
-/********************************************************************************/
-
-float needleman_wunch (const PATH& a, const PATH& b);
+float needleman_wunch (const Path& a, const Path& b);
 
 /********************************************************************************/
 
