@@ -102,8 +102,8 @@ void Minia::assemble (const Graph& graph)
     Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator);
     LOCAL (traversal);
 
-    std::vector<Nucleotide> consensusRight;
-    std::vector<Nucleotide> consensusLeft;
+    Path consensusRight;
+    Path consensusLeft;
 
     u_int64_t nbContigs         = 0;
     u_int64_t totalNt           = 0;
@@ -116,7 +116,7 @@ void Minia::assemble (const Graph& graph)
     /** We loop over the branching nodes. */
     for (itBranching.first(); !itBranching.isDone(); itBranching.next())
     {
-        DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
+        DEBUG ((cout << endl << "-------------------------- " << graph.toString (itBranching.item()) << " -------------------------" << endl));
 
         Node startingNode;
 
@@ -126,7 +126,7 @@ void Minia::assemble (const Graph& graph)
         {
             /** We compute right and left extensions of the starting node. */
             int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
-            int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING,  consensusLeft);
+            int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING, consensusLeft);
 
             int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
@@ -176,8 +176,8 @@ void Minia::buildSequence (
     const Node& startingNode,
     size_t length,
     size_t nbContigs,
-    const std::vector<Nucleotide>& consensusRight,
-    const std::vector<Nucleotide>& consensusLeft,
+    const Path& consensusRight,
+    const Path& consensusLeft,
     Sequence& seq
 )
 {

@@ -37,8 +37,8 @@ private:
         const Node& startingNode,
         size_t length,
         size_t nbContigs,
-        const std::vector<Nucleotide>& consensusRight,
-        const std::vector<Nucleotide>& consensusLeft,
+        const Path& consensusRight,
+        const Path& consensusLeft,
         Sequence& seq
     );
 };
