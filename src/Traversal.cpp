@@ -70,19 +70,7 @@ Traversal::Traversal (
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-Traversal::~Traversal ()
-{
-}
-
-/*********************************************************************
-** METHOD  :
-** PURPOSE :
-** INPUT   :
-** OUTPUT  :
-** RETURN  :
-** REMARKS :
-*********************************************************************/
-int Traversal::traverse (const Node& startingNode, Direction dir, std::vector<Nucleotide>& consensus)
+int Traversal::traverse (const Node& startingNode, Direction dir, Path& consensus)
 {
     Node currentNode = startingNode;
     Node previousNode;
@@ -91,7 +79,7 @@ int Traversal::traverse (const Node& startingNode, Direction dir, std::vector<Nu
 
     bool looping = false;
 
-    PATH path;  path.resize (max_depth+1);
+    Path path;  path.resize (max_depth+1);
 
     int bubble_start, bubble_end;
     bubbles_positions.clear();
@@ -110,11 +98,16 @@ int Traversal::traverse (const Node& startingNode, Direction dir, std::vector<Nu
         for (int i = 0; i < nnt; i++)
         {
             /** We add the current nucleotide into the contig. */
-            consensus.push_back (path[i].nt);
+            consensus.push_back (path[i]);
 
             /** We update previous and current nodes. */
             previousNode = currentNode;
-            currentNode  = path[i].to;
+
+            /** We compute the neighbor node for the current nucleotide of the path.
+             * WARNING: we 'build' here a node without checking that it belongs to the Debruijn graph, because
+             * the transition nucleotide has been got through a call to Graph::neighbors, and therefore it should
+             * be a trustable transition nucleotide. */
+            currentNode  = graph.neighbor<Node> (currentNode, dir, path[i]);
 
             /** We mark the node as used in assembly. */
             terminator.mark (currentNode);
@@ -179,7 +172,7 @@ char SimplePathsTraversal::avance (
     const Node& node,
     Direction dir,
     bool first_extension,
-    PATH& path,
+    Path& path,
     const Node& previousNode
 )
 {
@@ -227,7 +220,7 @@ char MonumentTraversal::avance (
     const Node& node,
     Direction dir,
     bool first_extension,
-    PATH& consensus,
+    Path& consensus,
     const Node& previousNode
 )
 {
@@ -260,7 +253,7 @@ char MonumentTraversal::avance (
 bool MonumentTraversal::explore_branching (
     const Node& node,
     Direction dir,
-    PATH& consensus,
+    Path& consensus,
     const Node& previousNode
 )
 {
@@ -280,7 +273,7 @@ bool MonumentTraversal::explore_branching (
 bool MonumentTraversal::explore_branching (
     const Node& startNode,
     Direction dir,
-    PATH& consensus,
+    Path& consensus,
     const Node& previousNode,
     std::set<Node>& all_involved_extensions
 )
@@ -293,9 +286,8 @@ bool MonumentTraversal::explore_branching (
     if (!traversal_depth)  {   return false;  }
 
     // find all consensuses between start node and end node
-    set<PATH> consensuses;
     bool success;
-    consensuses = all_consensuses_between (dir, startNode, endNode, traversal_depth+1, success);
+    set<Path> consensuses = all_consensuses_between (dir, startNode, endNode, traversal_depth+1, success);
 
     // if consensus phase failed, stop
     if (!success)  {  return false;  }
@@ -387,17 +379,17 @@ void MonumentTraversal::mark_extensions (std::set<Node>& extensions_to_mark)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-set<PATH> MonumentTraversal::all_consensuses_between (
+set<Path> MonumentTraversal::all_consensuses_between (
     Direction    dir,
     const Node& startNode,
     const Node& endNode,
     int traversal_depth,
-    set<Node> usedNode,
-    PATH current_consensus,
+    set<Node::Value> usedNode,
+    Path current_consensus,
     bool& success
 )
 {
-    set<PATH> consensuses;
+    set<Path> consensuses;
 
     // find_end_of_branching and all_consensues_between do not always agree on clean bubbles ends
     // until I can fix the problem, here is a fix
@@ -426,24 +418,22 @@ set<PATH> MonumentTraversal::all_consensuses_between (
         // don't resolve bubbles containing loops
         // (tandem repeats make things more complicated)
         // that's a job for a gapfiller
-        if (usedNode.find(edge.to) != usedNode.end())
+        if (usedNode.find(edge.to.kmer) != usedNode.end())
         {
             success = false;
             return consensuses;
         }
 
-        Nucleotide& NT = edge.nt;
-
         // generate extended consensus sequence
-        PATH extended_consensus(current_consensus);
-        extended_consensus.push_back (edge);
+        Path extended_consensus(current_consensus);
+        extended_consensus.push_back (edge.nt);
 
         // generate list of used kmers (to prevent loops)
-        set<Node> extended_kmers (usedNode);
-        extended_kmers.insert (edge.to);
+        set<Node::Value> extended_kmers (usedNode);
+        extended_kmers.insert (edge.to.kmer);
 
         // recursive call to all_consensuses_between
-        set<PATH> new_consensuses = all_consensuses_between (
+        set<Path> new_consensuses = all_consensuses_between (
             dir,
             edge.to,
             endNode,
@@ -473,7 +463,7 @@ set<PATH> MonumentTraversal::all_consensuses_between (
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-set<PATH> MonumentTraversal::all_consensuses_between (
+set<Path> MonumentTraversal::all_consensuses_between (
     Direction    dir,
     const Node& startNode,
     const Node& endNode,
@@ -481,9 +471,9 @@ set<PATH> MonumentTraversal::all_consensuses_between (
     bool &success
 )
 {
-    set<Node> usedNode;
-    usedNode.insert(startNode);
-    PATH current_consensus;
+    set<Node::Value> usedNode;
+    usedNode.insert(startNode.kmer);
+    Path current_consensus;
     success = true;
 
     return all_consensuses_between (dir, startNode, endNode, traversal_depth, usedNode, current_consensus, success);
@@ -497,13 +487,13 @@ set<PATH> MonumentTraversal::all_consensuses_between (
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-bool MonumentTraversal::validate_consensuses (set<PATH>& consensuses, PATH& result)
+bool MonumentTraversal::validate_consensuses (set<Path>& consensuses, Path& result)
 {
     bool debug = false;
     // compute mean and stdev of consensuses
     int mean = 0;
     int path_number = 0;
-    for(set<PATH>::iterator it = consensuses.begin(); it != consensuses.end() ; ++it)
+    for(set<Path>::iterator it = consensuses.begin(); it != consensuses.end() ; ++it)
     {
         //if (debug)  printf("bubble path %d: %s (len=%d)\n",path_number,(*it).c_str(),(*it).length());
         mean+=(*it).size();
@@ -511,7 +501,7 @@ bool MonumentTraversal::validate_consensuses (set<PATH>& consensuses, PATH& resu
     }
     mean/=consensuses.size();
     double stdev = 0;
-    for(set<PATH>::iterator it = consensuses.begin(); it != consensuses.end() ; ++it)
+    for(set<Path>::iterator it = consensuses.begin(); it != consensuses.end() ; ++it)
     {
         int consensus_length = (*it).size();
         stdev += pow(fabs(consensus_length-mean),2);
@@ -537,17 +527,13 @@ bool MonumentTraversal::validate_consensuses (set<PATH>& consensuses, PATH& resu
         return false;
 
     // if all good, an arbitrary consensus is chosen
-    PATH chosen_consensus = *consensuses.begin();
+    Path chosen_consensus = *consensuses.begin();
     int result_length = chosen_consensus.size();
     if  (result_length> max_depth) // it can happen that consensus is longer than max_depth, despite that we didn't explore that far (in a messy bubble with branchings inside)
         return false;
 
-    result.resize(result_length);
-
-    for (size_t i=0; i<chosen_consensus.size(); i++)
-    {
-        result[i] = chosen_consensus[i];
-    }
+    /** We the the result consensus. */
+    result = chosen_consensus;
 
     return true;
 }
@@ -560,11 +546,11 @@ bool MonumentTraversal::validate_consensuses (set<PATH>& consensuses, PATH& resu
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-bool MonumentTraversal::all_consensuses_almost_identical (set<PATH>& consensuses)
+bool MonumentTraversal::all_consensuses_almost_identical (set<Path>& consensuses)
 {
-    for (set<PATH>::iterator it_a = consensuses.begin(); it_a != consensuses.end(); it_a++)
+    for (set<Path>::iterator it_a = consensuses.begin(); it_a != consensuses.end(); it_a++)
     {
-        set<PATH>::iterator it_b = it_a;
+        set<Path>::iterator it_b = it_a;
         advance(it_b,1);
         while (it_b != consensuses.end())
         {

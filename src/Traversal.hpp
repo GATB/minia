@@ -30,13 +30,10 @@ public:
     );
 
     /** */
-    virtual ~Traversal();
-
-    /** */
     virtual std::string getName() const = 0;
 
     /** */
-    virtual int traverse (const Node& node, Direction dir, std::vector<Nucleotide>& resulting_sequence);
+    virtual int traverse (const Node& node, Direction dir, Path& resulting_sequence);
 
     /** */
     int getMaxDepth() const  { return max_depth; }
@@ -62,7 +59,7 @@ protected:
     int max_depth;
     int max_breadth;
 
-    virtual char avance (const Node& node, Direction dir, bool first_extension, PATH& path, const Node& previousNode) = 0;
+    virtual char avance (const Node& node, Direction dir, bool first_extension, Path& path, const Node& previousNode) = 0;
 
     void mark_extensions (std::set<Node>& extensions_to_mark);
 
@@ -88,7 +85,7 @@ public:
 
 private:
 
-    char avance (const Node& node, Direction dir, bool first_extension, PATH& path, const Node& previousNode) { return 0; }
+    char avance (const Node& node, Direction dir, bool first_extension, Path& path, const Node& previousNode) { return 0; }
 };
 
 /********************************************************************************/
@@ -109,7 +106,7 @@ public:
 
 private:
 
-    char avance (const Node& node, Direction dir, bool first_extension, PATH& path, const Node& previousNode);
+    char avance (const Node& node, Direction dir, bool first_extension, Path& path, const Node& previousNode);
 };
 
 /********************************************************************************/
@@ -131,19 +128,19 @@ public:
     bool explore_branching (
         const Node& node,
         Direction dir,
-        PATH& consensus,
+        Path& consensus,
         const Node& previousNode,
         std::set<Node>& all_involved_extensions
     );
 
 private:
 
-    char avance (const Node& node, Direction dir, bool first_extension, PATH& path, const Node& previousNode);
+    char avance (const Node& node, Direction dir, bool first_extension, Path& path, const Node& previousNode);
 
     bool explore_branching (
         const Node& node,
         Direction dir,
-        PATH& consensus,
+        Path& consensus,
         const Node& previousNode
     );
 
@@ -156,17 +153,17 @@ private:
         std::set<Node>& all_involved_extensions
     );
 
-    std::set<PATH> all_consensuses_between (
+    std::set<Path> all_consensuses_between (
         Direction    dir,
         const Node& startNode,
         const Node& endNode,
         int traversal_depth,
-        std::set<Node> usedNode,
-        PATH current_consensus,
+        std::set<Node::Value> usedNode,
+        Path current_consensus,
         bool& success
     );
 
-    std::set<PATH> all_consensuses_between (
+    std::set<Path> all_consensuses_between (
         Direction    dir,
         const Node& startNode,
         const Node& endNode,
@@ -174,9 +171,9 @@ private:
         bool &success
     );
 
-    bool validate_consensuses (std::set<PATH>& consensuses, PATH& consensus);
+    bool validate_consensuses (std::set<Path>& consensuses, Path& consensus);
 
-    bool all_consensuses_almost_identical (std::set<PATH>& consensuses);
+    bool all_consensuses_almost_identical (std::set<Path>& consensuses);
 
     void mark_extensions (std::set<Node>& extensions_to_mark);
 
