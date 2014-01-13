@@ -29,15 +29,18 @@ using namespace std;
 Traversal* Traversal::create (
     const std::string&  type,
     const Graph&        graph,
-    Terminator&         terminator
+    Terminator&         terminator,
+    int                 max_len,
+    int                 max_depth,
+    int                 max_breadth
 )
 {
     Traversal* result = 0;
 
-         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator); }
-    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator); }
-    else if (type == "null")      { result = new NullTraversal        (graph, terminator); }
-    else                          { result = new MonumentTraversal    (graph, terminator); }
+         if (type == "unitig")    { result = new SimplePathsTraversal (graph, terminator, max_len, max_depth, max_breadth); }
+    else if (type == "monument")  { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
+    else if (type == "null")      { result = new NullTraversal        (graph, terminator, max_len, max_depth, max_breadth); }
+    else                          { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
 
     return result;
 }
@@ -53,12 +56,14 @@ Traversal* Traversal::create (
 Traversal::Traversal (
     const Graph& graph,
     Terminator& terminator,
-    int maxlen,
+    int max_len,
     int max_depth,
     int max_breadth
 )
     : graph(graph), terminator(terminator),
-      maxlen(1000000),max_depth(500),max_breadth(20)
+      maxlen      (max_len     == 0 ? Traversal::defaultMaxLen     : max_len),
+      max_depth   (max_depth   == 0 ? Traversal::defaultMaxDepth   : max_depth),
+      max_breadth (max_breadth == 0 ? Traversal::defaultMaxBreadth : max_breadth)
 {
 }
 

@@ -24,9 +24,12 @@ public:
 
     /** */
     static Traversal* create (
-        const std::string& type,
-        const Graph& graph,
-        Terminator& terminator
+        const std::string&  type,
+        const Graph&        graph,
+        Terminator&         terminator,
+        int                 max_len,
+        int                 max_depth,
+        int                 max_breadth
     );
 
     /** */
@@ -40,6 +43,11 @@ public:
 
     /** */
     int getMaxBreadth () const  { return max_breadth; }
+
+    /** */
+    static const int defaultMaxLen     = 10*1000*1000;
+    static const int defaultMaxDepth   = 500;
+    static const int defaultMaxBreadth = 20;
 
 protected:
 
@@ -76,9 +84,9 @@ public:
     NullTraversal (
         const Graph& graph,
         Terminator& terminator,
-        int maxlen      = 1000000,
-        int max_depth   = 500,
-        int max_breadth = 20
+        int maxlen      = Traversal::defaultMaxLen,
+        int max_depth   = Traversal::defaultMaxDepth,
+        int max_breadth = Traversal::defaultMaxBreadth
     ) : Traversal (graph, terminator, maxlen, max_depth, max_breadth) {}
 
     std::string getName() const  { return std::string ("null"); }
@@ -97,9 +105,9 @@ public:
     SimplePathsTraversal (
         const Graph& graph,
         Terminator& terminator,
-        int maxlen      = 1000000,
-        int max_depth   = 500,
-        int max_breadth = 20
+        int maxlen      = Traversal::defaultMaxLen,
+        int max_depth   = Traversal::defaultMaxDepth,
+        int max_breadth = Traversal::defaultMaxBreadth
     );
 
     std::string getName() const  { return std::string ("unitig"); }
@@ -118,9 +126,9 @@ public:
     MonumentTraversal (
         const Graph& graph,
         Terminator& terminator,
-        int maxlen      = 1000000,
-        int max_depth   = 500,
-        int max_breadth = 20
+        int maxlen      = Traversal::defaultMaxLen,
+        int max_depth   = Traversal::defaultMaxDepth,
+        int max_breadth = Traversal::defaultMaxBreadth
     );
 
     std::string getName() const  { return std::string ("monument"); }

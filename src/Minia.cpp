@@ -25,8 +25,11 @@ using namespace std;
 
 /********************************************************************************/
 
-static const char* STR_TRAVERSAL_KIND = "-traversal";
-static const char* STR_STARTER_KIND   = "-starter";
+static const char* STR_TRAVERSAL_KIND  = "-traversal";
+static const char* STR_STARTER_KIND    = "-starter";
+static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
+static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
+static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 
 /*********************************************************************
 ** METHOD  :
@@ -38,13 +41,17 @@ static const char* STR_STARTER_KIND   = "-starter";
 *********************************************************************/
 Minia::Minia () : Tool ("minia")
 {
-    /** We add options specific to DSK. */
-    getParser()->add (new OptionOneParam (STR_URI_DB,          "databank uri",                          true));
-    getParser()->add (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
-    getParser()->add (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "1000"      ));
-    getParser()->add (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
-    getParser()->add (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
-    getParser()->add (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
+    /** We add options specific to Minia (most important at the end). */
+    getParser()->push_front (new OptionOneParam (STR_VERBOSE,         "verbosity level",                       false,  "1"));
+    getParser()->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
+    getParser()->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
+    getParser()->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
+    getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
+    getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
+    getParser()->push_front (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
+    getParser()->push_front (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "1000"      ));
+    getParser()->push_front (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
+    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input file (likely a hdf5 file)",       true));
 }
 
 /*********************************************************************
@@ -58,7 +65,7 @@ Minia::Minia () : Tool ("minia")
 void Minia::execute ()
 {
     /** We load the graph from the provided uri. */
-    Graph graph = Graph::load (getInput()->getStr(STR_URI_DB));
+    Graph graph = Graph::load (getInput()->getStr(STR_URI_INPUT));
 
     /** We build the contigs. */
     assemble (graph);
@@ -81,11 +88,16 @@ void Minia::assemble (const Graph& graph)
 
     string output = getInput()->get(STR_URI_OUTPUT) ?
         getInput()->getStr(STR_URI_OUTPUT) :
-        System::file().getBaseName (getInput()->getStr(STR_URI_DB)) + ".contigs";
+        System::file().getBaseName (getInput()->getStr(STR_URI_INPUT)) + ".contigs";
+
+    /** We setup default values if needed. */
+    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  Traversal::defaultMaxLen);     }
+    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   Traversal::defaultMaxDepth);   }
+    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, Traversal::defaultMaxBreadth); }
 
     /** We create the output bank. Note that we could make this a little bit prettier
      *  => possibility to save the contigs in specific output format (other than fasta).  */
-    IBank* outputBank = new Bank (output);
+    IBank* outputBank = new BankFasta (output);
     LOCAL (outputBank);
 
     /** We get an iterator over the branching nodes. */
@@ -99,7 +111,14 @@ void Minia::assemble (const Graph& graph)
     LOCAL (starter);
 
     /** We create the Traversal instance according to the user choice. */
-    Traversal* traversal = Traversal::create (getInput()->getStr(STR_TRAVERSAL_KIND), graph, terminator);
+    Traversal* traversal = Traversal::create (
+        getInput()->getStr(STR_TRAVERSAL_KIND),
+        graph,
+        terminator,
+        getInput()->getInt (STR_CONTIG_MAX_LEN),
+        getInput()->getInt (STR_BFS_MAX_DEPTH),
+        getInput()->getInt (STR_BFS_MAX_BREADTH)
+    );
     LOCAL (traversal);
 
     Path consensusRight;
@@ -151,9 +170,11 @@ void Minia::assemble (const Graph& graph)
 
     } /* end of for (itBranching.first() */
 
+    /** We add the input parameters to the global properties. */
+    getInfo()->add (1, getInput());
+
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
-    getInfo()->add (2, "uri",               "%s", getInput()->getStr(STR_URI_DB).c_str());
     getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
     getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
     getInfo()->add (2, "nb_contig",         "%d", nbContigs);
