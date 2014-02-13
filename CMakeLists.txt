@@ -12,6 +12,8 @@ SET (GATB_CORE_INSTALL_EXCLUDE "1")
 # we depend on gatb-core; here, we define where to find all the required material
 add_subdirectory (../../thirdparty/gatb-core/gatb-core  "${CMAKE_CURRENT_BINARY_DIR}/ext/gatb-core")
 
+# We set the cmake helpers directory
+set (CMAKE_MODULE_PATH ${gatb-core-cmake})
 
 ################################################################################
 # TOOL
@@ -35,6 +37,11 @@ add_executable        (${PROJECT_NAME}  ${ProjectFiles})
 # we define which libraries to be linked with project binary
 target_link_libraries (${PROJECT_NAME}  ${gatb-core-libraries})
 
+################################################################################
+#  DOC 
+################################################################################
+add_subdirectory (doc)
+    
 ################################################################################
 #  INSTALLATION 
 ################################################################################
