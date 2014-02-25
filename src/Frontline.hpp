@@ -81,6 +81,17 @@ public:
 
     NodeNt front () { return _frontline.front(); }
 
+    enum reason
+    {
+        NONE,
+        ALREADY_FRONTLINED,
+        IN_BRANCHING_DEPTH,
+        IN_BRANCHING_BREADTH,
+        IN_BRANCHING_OTHER,
+        MARKED
+    };
+    reason stopped_reason;
+
 protected:
 
     virtual bool check (const Node& node)  { return true; }

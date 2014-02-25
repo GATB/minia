@@ -23,9 +23,24 @@
 
 #include <gatb/gatb_core.hpp>
 #include <Utils.hpp>
-#include <Terminator.hpp>
 #include <NodeSelector.hpp>
 #include <set>
+
+// some stats
+struct TraversalStats
+{
+    long ended_traversals;
+    long couldnt_find_all_consensuses;
+    long couldnt_validate_consensuses;
+    long couldnt_traverse_bubble_breadth;
+    long couldnt_traverse_bubble_depth;
+    long couldnt_because_marked_kmer;
+    long couldnt_inbranching_depth;
+    long couldnt_inbranching_breadth;
+    long couldnt_inbranching_other;
+    long couldnt_find_extension;
+};
+
 
 /********************************************************************************/
 // semi-abstract class. implements traverse but not avance
@@ -50,15 +65,20 @@ public:
     virtual int traverse (const Node& node, Direction dir, Path& resulting_sequence);
 
     /** */
-    int getMaxDepth() const  { return max_depth; }
+    int getMaxDepth() const  { return max_depth; };
 
     /** */
-    int getMaxBreadth () const  { return max_breadth; }
+    int getMaxBreadth () const  { return max_breadth; };
 
     /** */
     static const int defaultMaxLen     = 10*1000*1000;
     static const int defaultMaxDepth   = 500;
     static const int defaultMaxBreadth = 20;
+
+    TraversalStats final_stats, stats;
+    void commit_stats() { final_stats = stats; }; // save current stats into final stats
+    void revert_stats() { stats = final_stats; }; // discard changes in stats (because contig was discarded)
+
 
 protected:
 

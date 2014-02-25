@@ -137,7 +137,7 @@ bool NodeSelectorImproved::select (const Node& source, Node& result)
 
 /*********************************************************************
 ** METHOD  :
-** PURPOSE :
+** PURPOSE : This is the NodeSelector to use when you're doing contigs traversal -- it avoids starting inside a bubble
 ** INPUT   :
 ** OUTPUT  :
 ** RETURN  :

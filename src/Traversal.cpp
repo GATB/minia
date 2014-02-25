@@ -71,7 +71,7 @@ Traversal::Traversal (
     int max_depth,
     int max_breadth
 )
-    : graph(graph), terminator(terminator),
+    : graph(graph), terminator(terminator), stats(TraversalStats()), final_stats(TraversalStats()),
       maxlen      (max_len     == 0 ? Traversal::defaultMaxLen     : max_len),
       max_depth   (max_depth   == 0 ? Traversal::defaultMaxDepth   : max_depth),
       max_breadth (max_breadth == 0 ? Traversal::defaultMaxBreadth : max_breadth)
@@ -253,7 +253,11 @@ char MonumentTraversal::avance (
     // * computing all possible paths between start and end
     // * returns one flattened consensus sequence
     bool success = explore_branching (node, dir, consensus, previousNode);
-    if (!success)  {  return 0; }
+    if (!success)
+    { 
+        stats.ended_traversals++;
+        return 0;
+    }
 
     return consensus.size();
 }
@@ -299,7 +303,11 @@ bool MonumentTraversal::explore_branching (
     // find end of branching, record all involved extensions (for future marking)
     // it returns false iff it's a complex bubble
     int traversal_depth = find_end_of_branching (dir, startNode, endNode, previousNode, all_involved_extensions);
-    if (!traversal_depth)  {   return false;  }
+    if (!traversal_depth)  
+    {
+        stats.couldnt_find_all_consensuses++;
+        return false;
+    }
 
     // find all consensuses between start node and end node
     bool success;
@@ -311,7 +319,11 @@ bool MonumentTraversal::explore_branching (
     consensus.resize (0);
     // validate paths, based on identity
     bool validated = validate_consensuses (consensuses, consensus);
-    if (!validated)   {  return false;  }
+    if (!validated)   
+    {  
+        stats.couldnt_validate_consensuses++;
+        return false;  
+    }
 
     // the consensuses agree, mark all the involved extensions
     // (corresponding to alternative paths we will never traverse again)
@@ -341,18 +353,41 @@ int MonumentTraversal::find_end_of_branching (
 
     do  {
         bool should_continue = frontline.go_next_depth();
-        if (!should_continue) {  return 0;  }
+        if (!should_continue) 
+        {
+            if (frontline.stopped_reason == Frontline::MARKED)
+                stats.couldnt_because_marked_kmer++;
+            if (frontline.stopped_reason == Frontline::IN_BRANCHING_DEPTH)
+                stats.couldnt_inbranching_depth++;
+            if (frontline.stopped_reason == Frontline::IN_BRANCHING_BREADTH)
+                stats.couldnt_inbranching_breadth++;
+            if (frontline.stopped_reason == Frontline::IN_BRANCHING_OTHER)
+                stats.couldnt_inbranching_other++;
+            return 0;
+        }
 
         // don't allow a depth too large
-        if (frontline.depth() > max_depth)  {  return 0;  }
+        if (frontline.depth() > max_depth)  
+        {  
+            stats.couldnt_traverse_bubble_depth++;
+            return 0;  
+        }
 
         // don't allow a breadth too large
-        if (frontline.size()> max_breadth)  {  return 0;  }
+        if (frontline.size()> max_breadth)  
+        {  
+            stats.couldnt_traverse_bubble_breadth++;
+            return 0;
+        }
 
         // stopping condition: frontline is either empty, or contains only 1 kmer
         // needs the kmer to be non-branching, in order to avoid a special case of bubble immediatly after a bubble
         // affects mismatch rate in ecoli greatly
-        if (frontline.size() == 0)  {  return 0;  }
+        if (frontline.size() == 0)  
+        {
+            stats.couldnt_find_extension++;
+            return 0;
+        }
 
         // if (frontline.size() == 1) // longer contigs but for some reason, higher mismatch rate
         if (frontline.size() == 1 &&   (!terminator.isEnabled() || !terminator.is_branching(frontline.front().node)) )  {   break;  }
@@ -511,7 +546,7 @@ bool MonumentTraversal::validate_consensuses (set<Path>& consensuses, Path& resu
     int path_number = 0;
     for(set<Path>::iterator it = consensuses.begin(); it != consensuses.end() ; ++it)
     {
-        //if (debug)  printf("bubble path %d: %s (len=%d)\n",path_number,(*it).c_str(),(*it).length());
+        //if (debug)  printf("bubble path %d: %s (len=%lu)\n",path_number,(*it).c_str(),(*it).length());
         mean+=(*it).size();
         path_number++;
     }
@@ -532,7 +567,7 @@ bool MonumentTraversal::validate_consensuses (set<Path>& consensuses, Path& resu
     if (consensuses.size() == 1 && mean > graph.getKmerSize()+1) // deadend length should be < k+1 (most have length 1, but have seen up to 10 in ecoli)
         return false;
 
-    if (debug) printf("%d-bubble mean %d, stdev %.1f\n",consensuses.size(),mean,stdev);
+    if (debug) printf("%lu-bubble mean %d, stdev %.1f\n",consensuses.size(),mean,stdev);
 
     // traverse bubbles if paths have roughly the same length
     if (stdev>mean/5)

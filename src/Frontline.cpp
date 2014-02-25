@@ -88,6 +88,7 @@ Frontline::Frontline (
 bool Frontline::go_next_depth()
 {
     // extend all nodes in this frontline simultaneously, creating a new frontline
+    stopped_reason=NONE;
     queue_nodes new_frontline;
 
     while (!_frontline.empty())
@@ -112,7 +113,11 @@ bool Frontline::go_next_depth()
             if (_already_frontlined.find (neighbor.kmer) != _already_frontlined.end())  { continue; }
 
             // if this bubble contains a marked (branching) kmer, stop everyone at once (to avoid redundancy)
-            if (_terminator.isEnabled() && _terminator.is_branching (neighbor) &&  _terminator.is_marked_branching(neighbor))  {  return false;  }
+            if (_terminator.isEnabled() && _terminator.is_branching (neighbor) &&  _terminator.is_marked_branching(neighbor))  
+            {  
+                stopped_reason=Frontline::MARKED;
+                return false;  
+            }
 
             // propagate information where this node comes from
             Nucleotide from_nt = (current_node.nt == NUCL_UNKNOWN) ? edge.nt : current_node.nt;
@@ -203,13 +208,25 @@ bool FrontlineBranching::check (const Node& node)
         do  {
             bool should_continue = frontline.go_next_depth();
 
-            if (!should_continue)  {  break;  }
+            if (!should_continue)  
+            {  
+                stopped_reason=Frontline::IN_BRANCHING_OTHER;
+                break;
+            }
 
             // don't allow a depth > 3k
-            if (frontline.depth() > 3 * _graph.getKmerSize())  {  break;  }
+            if (frontline.depth() > 3 * _graph.getKmerSize())  
+            {  
+                stopped_reason=Frontline::IN_BRANCHING_DEPTH;
+                break;
+            }
 
             // don't allow a breadth too large
-            if (frontline.size() > 10)  {  break;  }
+            if (frontline.size() > 10)  
+            {  
+                stopped_reason=Frontline::IN_BRANCHING_BREADTH;
+                break;
+            }
 
             // stopping condition: no more in-branching
             if (frontline.size() == 0)  {  break;  }

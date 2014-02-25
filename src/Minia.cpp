@@ -136,6 +136,7 @@ void Minia::assemble (const Graph& graph)
     Path consensusLeft;
 
     u_int64_t nbContigs         = 0;
+    u_int64_t nbSmallContigs    = 0;
     u_int64_t totalNt           = 0;
     u_int64_t maxContigLen      = 0;
     u_int64_t maxContigLenLeft  = 0;
@@ -172,9 +173,16 @@ void Minia::assemble (const Graph& graph)
                 nbContigs += 1;
                 totalNt   += lenTotal;
 
+                traversal->commit_stats();
+
                 if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
                 if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
                 if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
+            }
+            else
+            {
+                traversal->revert_stats();
+                nbSmallContigs++;
             }
 
         } /* end of  while (starter->select() */
@@ -188,11 +196,22 @@ void Minia::assemble (const Graph& graph)
     getInfo()->add (1, "stats");
     getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
     getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
-    getInfo()->add (2, "nb_contig",         "%d", nbContigs);
+    getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
+    getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%d", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);
     getInfo()->add (2, "max_length_left",   "%d", maxContigLenLeft);
     getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
+
+    getInfo()->add (1, "debugging traversal stats");
+    getInfo()->add (2, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
+    getInfo()->add (2, "large bubble breadth", "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
+    getInfo()->add (2, "large bubble depth", "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
+    getInfo()->add (2, "stopped at marked kmer", "%d", traversal->final_stats.couldnt_because_marked_kmer);
+    getInfo()->add (2, "no kmer extension", "%d", traversal->final_stats.couldnt_find_extension);
+    getInfo()->add (2, "in-branchin large depth", "%d", traversal->final_stats.couldnt_inbranching_depth);
+    getInfo()->add (2, "in-branching large breadth", "%d", traversal->final_stats.couldnt_inbranching_breadth);
+    getInfo()->add (2, "in-branching other", "%d", traversal->final_stats.couldnt_inbranching_other);
 }
 
 /*********************************************************************
