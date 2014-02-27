@@ -60,7 +60,7 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
     getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
     getParser()->push_front (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "1000"      ));
+    getParser()->push_front (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
     getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input file (likely a hdf5 file)",       true));
 }
