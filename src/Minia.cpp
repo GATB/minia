@@ -205,13 +205,13 @@ void Minia::assemble (const Graph& graph)
 
     getInfo()->add (1, "debugging traversal stats");
     getInfo()->add (2, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
-    getInfo()->add (2, "large bubble breadth", "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
-    getInfo()->add (2, "large bubble depth", "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
-    getInfo()->add (2, "stopped at marked kmer", "%d", traversal->final_stats.couldnt_because_marked_kmer);
-    getInfo()->add (2, "no kmer extension", "%d", traversal->final_stats.couldnt_find_extension);
-    getInfo()->add (2, "in-branchin large depth", "%d", traversal->final_stats.couldnt_inbranching_depth);
-    getInfo()->add (2, "in-branching large breadth", "%d", traversal->final_stats.couldnt_inbranching_breadth);
-    getInfo()->add (2, "in-branching other", "%d", traversal->final_stats.couldnt_inbranching_other);
+    getInfo()->add (2, "large bubble breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
+    getInfo()->add (2, "large bubble depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
+    getInfo()->add (2, "stopped at marked kmer",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
+    getInfo()->add (2, "no kmer extension",             "%d", traversal->final_stats.couldnt_find_extension);
+    getInfo()->add (2, "in-branchin large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
+    getInfo()->add (2, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
+    getInfo()->add (2, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
 }
 
 /*********************************************************************
