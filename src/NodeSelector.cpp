@@ -72,7 +72,7 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
         size_t len_extension = 0;
 
         /** We loop successive node on a simple path. */
-        Graph::Iterator<Node> itNodes = GraphHelper(_graph).simplePathIterator<Node> (neighbors[i].to, neighbors[i].direction);
+        Graph::Iterator<Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, neighbors[i].direction);
 
         for (itNodes.first(); !itNodes.isDone(); itNodes.next())
         {

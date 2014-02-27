@@ -192,7 +192,7 @@ char SimplePathsTraversal::avance (
     const Node& previousNode
 )
 {
-    return  max (GraphHelper(graph).simplePathAvance (node, dir, path[0]),  0);
+    return  max (graph.simplePathAvance (node, dir, path[0]),  0);
 }
 
 /*********************************************************************
@@ -241,7 +241,7 @@ char MonumentTraversal::avance (
 )
 {
     // if we're on a simple path, just traverse it
-    int is_simple_path = GraphHelper(graph).simplePathAvance (node, dir, consensus[0]);
+    int is_simple_path = graph.simplePathAvance (node, dir, consensus[0]);
     if (is_simple_path > 0)  {  return 1;  }
 
     // the following function does:
