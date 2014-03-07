@@ -60,4 +60,4 @@ INSTALL (TARGETS ${PROJECT_NAME} DESTINATION bin)
 SET (CPACK_SOURCE_IGNORE_FILES  ${CPACK_SOURCE_IGNORE_FILES} "/build/" ".gitignore$")
 
 # To be done at the end. 
-INCLUDE (CPack)
+INCLUDE (Delivery)
