@@ -113,7 +113,7 @@ void Minia::assemble (const Graph& graph)
     LOCAL (outputBank);
 
     /** We get an iterator over the branching nodes. */
-    ProgressIterator<BranchingNode,ProgressTimer> itBranching (graph.iterator<BranchingNode>(), "assembly");
+    ProgressGraphIterator<BranchingNode,ProgressTimer> itBranching (graph.iterator<BranchingNode>(), "assembly");
 
     /** We create the Terminator. */
     BranchingTerminator terminator (graph);
