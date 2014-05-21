@@ -22,8 +22,6 @@
 /********************************************************************************/
 
 #include <NodeSelector.hpp>
-#include <Frontline.hpp>
-#include <Traversal.hpp>
 
 using namespace std;
 
