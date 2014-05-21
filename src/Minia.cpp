@@ -22,9 +22,6 @@
 /********************************************************************************/
 
 #include <Minia.hpp>
-#include <Frontline.hpp>
-#include <Terminator.hpp>
-#include <Traversal.hpp>
 #include <NodeSelector.hpp>
 
 #include <fstream>
