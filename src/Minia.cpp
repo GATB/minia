@@ -196,7 +196,7 @@ void Minia::assemble (const Graph& graph)
     getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
-    getInfo()->add (2, "nt_assembled",      "%d", totalNt);
+    getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);
     getInfo()->add (2, "max_length_left",   "%d", maxContigLenLeft);
     getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
