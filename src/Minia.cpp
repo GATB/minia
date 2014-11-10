@@ -39,6 +39,7 @@ static const char* STR_STARTER_KIND    = "-starter";
 static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
 static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
 static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
+static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
 
 /*********************************************************************
 ** METHOD  :
@@ -57,6 +58,7 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
     getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
+    getParser()->push_front  (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
     getParser()->push_front (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
@@ -140,6 +142,8 @@ void Minia::assemble (const Graph& graph)
     u_int64_t maxContigLenLeft  = 0;
     u_int64_t maxContigLenRight = 0;
 
+    bool isNoLengthCutoff = getParser()->saw(STR_NO_LENGTH_CUTOFF);
+
     Sequence seq (Data::ASCII);
 
     /** We loop over the branching nodes. */
@@ -160,7 +164,7 @@ void Minia::assemble (const Graph& graph)
             int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
             /** We keep this contig if its size is long enough. */
-            if (lenTotal >= 2*graph.getKmerSize()+1)
+            if (lenTotal >= 2*graph.getKmerSize()+1 || isNoLengthCutoff)
             {
                 /** We create the contig sequence. */
                 buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);

@@ -59,6 +59,7 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
     {
         /** make sure this kmer isnt branching */
         if (_terminator.is_branching (neighbors[i].to))  {  continue;  }
+        /* FIXME: if we skip unitigs that are just one branching kmer, it means that we don't return ALL unitigs */
 
         if (_terminator.is_marked (neighbors[i].to))  {  continue;  }
 
@@ -75,7 +76,12 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
 
         for (itNodes.first(); !itNodes.isDone(); itNodes.next())
         {
-            if (len_extension++ > 2*_graph.getKmerSize())
+	    bool only_simple_path_longer_than_2k = false; 
+	    /* no reason to discard small unitigs -- we generally want them all;
+             * anyhow, minia has another length filter in output
+		 */
+
+            if (len_extension++ > 2*_graph.getKmerSize() || (!only_simple_path_longer_than_2k))
             {
                 /** NOTE: By convention, the returned node is understood as the forward part of the node in the
                  * bi-directional De Bruijn graph.  */
