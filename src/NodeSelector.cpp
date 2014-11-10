@@ -81,6 +81,8 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
              * anyhow, minia has another length filter in output
 		 */
 
+            startingNode = itNodes.item();
+
             if (len_extension++ > 2*_graph.getKmerSize() || (!only_simple_path_longer_than_2k))
             {
                 /** NOTE: By convention, the returned node is understood as the forward part of the node in the
@@ -90,8 +92,6 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
                 /** Ok, we found a starting point. */
                 return true;
             }
-
-            startingNode = itNodes.item();
         }
     }
 
