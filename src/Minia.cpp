@@ -40,6 +40,7 @@ static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
 static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
 static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
+static const char* STR_URI_GRAPH = "-graph";
 
 /*********************************************************************
 ** METHOD  :
@@ -51,18 +52,24 @@ static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
 *********************************************************************/
 Minia::Minia () : Tool ("minia")
 {
+
+	// reinit the parser to get rid of options added by the Tool class, as we'll add them again in the Graph parser
+	setParser (new OptionsParser ("minia")); 
+
+   // when we input reads, dbgh5 is executed, so its options are needed here
+   getParser()->push_back(Graph::getOptionsParser(false));
+
     /** We add options specific to Minia (most important at the end). */
-    getParser()->push_front (new OptionOneParam (STR_VERBOSE,         "verbosity level",                       false,  "1"));
     getParser()->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
     getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
     getParser()->push_front  (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
-    getParser()->push_front (new OptionOneParam (STR_MAX_DISK,        "max disk space in MBytes",              false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_MAX_MEMORY,      "max memory in MBytes",                  false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_URI_OUTPUT,      "output file",                           false));
-    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input file (likely a hdf5 file)",       true));
+    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",       false));
+    getParser()->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",       false));
+
+    
 }
 
 /*********************************************************************
@@ -75,8 +82,31 @@ Minia::Minia () : Tool ("minia")
 *********************************************************************/
 void Minia::execute ()
 {
-    /** We load the graph from the provided uri. */
-    Graph graph = Graph::load (getInput()->getStr(STR_URI_INPUT));
+ if (getInput()->get(STR_VERSION) != 0){
+        cout << "Minia from GATB version "<< STR_LIBRARY_VERSION << endl;
+        return;
+    }
+
+	Graph graph;
+
+	if (getInput()->get(STR_URI_GRAPH) != 0)
+	{
+		graph = Graph::load (getInput()->getStr(STR_URI_GRAPH));
+	}
+	else
+	{
+
+		if (getInput()->get(STR_URI_INPUT) != 0)
+		{
+			graph = Graph::create (getInput());
+
+		}
+		else
+		{
+			cout << "Specifiy -graph or -in \n";
+			throw OptionFailure(*getParser());
+		}
+	}
 
     /** We build the contigs. */
     assemble (graph);
@@ -99,7 +129,10 @@ void Minia::assemble (const Graph& graph)
 
     string output = getInput()->get(STR_URI_OUTPUT) ?
         getInput()->getStr(STR_URI_OUTPUT) :
-        System::file().getBaseName (getInput()->getStr(STR_URI_INPUT)) + ".contigs";
+        System::file().getBaseName (
+		  (getInput()->get(STR_URI_INPUT) ? getInput()->getStr(STR_URI_INPUT) : 
+		   getInput()->getStr(STR_URI_GRAPH))
+		) + ".contigs";
 
     /** We setup default values if needed. */
     if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  Traversal::defaultMaxLen);     }
