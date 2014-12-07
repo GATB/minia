@@ -127,12 +127,13 @@ void Minia::assemble (const Graph& graph)
 {
     TIME_INFO (getTimeInfo(), "assembly");
 
-    string output = getInput()->get(STR_URI_OUTPUT) ?
+    string output = (getInput()->get(STR_URI_OUTPUT) ?
         getInput()->getStr(STR_URI_OUTPUT) :
         System::file().getBaseName (
 		  (getInput()->get(STR_URI_INPUT) ? getInput()->getStr(STR_URI_INPUT) : 
 		   getInput()->getStr(STR_URI_GRAPH))
-		) + ".contigs";
+                                   ) 
+                    )+ ".contigs.fa";
 
     /** We setup default values if needed. */
     if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  Traversal::defaultMaxLen);     }
