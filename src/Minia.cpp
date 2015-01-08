@@ -40,7 +40,10 @@ static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
 static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
 static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
-static const char* STR_URI_GRAPH = "-graph";
+static const char* STR_URI_GRAPH        = "-graph";
+static const char* STR_FASTA_LINE_SIZE  = "-fasta-line";
+
+static const char* progressFormat0 = "Assembly                               ";
 
 /*********************************************************************
 ** METHOD  :
@@ -65,11 +68,10 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
     getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
     getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
-    getParser()->push_front  (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
-    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",       false));
-    getParser()->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",       false));
-
-    
+    getParser()->push_front (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
+    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
+    getParser()->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
+    getParser()->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per fasta line (0 means one line)",  false, "0"));
 }
 
 /*********************************************************************
@@ -145,8 +147,11 @@ void Minia::assemble (const Graph& graph)
     IBank* outputBank = new BankFasta (output);
     LOCAL (outputBank);
 
+    /** We set the fasta line size. */
+    BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
+
     /** We get an iterator over the branching nodes. */
-    ProgressGraphIterator<BranchingNode,ProgressTimer> itBranching (graph.iterator<BranchingNode>(), "assembly");
+    ProgressGraphIterator<BranchingNode,ProgressTimerAndSystem> itBranching (graph.iterator<BranchingNode>(), progressFormat0);
 
     /** We create the Terminator. */
     BranchingTerminator terminator (graph);
