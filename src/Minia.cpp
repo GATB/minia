@@ -55,23 +55,26 @@ static const char* progressFormat0 = "Assembly                               ";
 *********************************************************************/
 Minia::Minia () : Tool ("minia")
 {
-
 	// reinit the parser to get rid of options added by the Tool class, as we'll add them again in the Graph parser
 	setParser (new OptionsParser ("minia")); 
 
-   // when we input reads, dbgh5 is executed, so its options are needed here
-   getParser()->push_back(Graph::getOptionsParser(false));
-
     /** We add options specific to Minia (most important at the end). */
-    getParser()->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per fasta line (0 means one line)",  false, "0"));
-    getParser()->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
-    getParser()->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
-    getParser()->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
-    getParser()->push_front (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
-    getParser()->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
-    getParser()->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
+	OptionsParser* assemblyParser = new OptionsParser ("assembly");
+
+	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per fasta line (0 means one line)",  false, "0"));
+	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
+	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
+	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
+	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
+	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
+	assemblyParser->push_front (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
+	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
+	assemblyParser->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
+
+    getParser()->push_back (assemblyParser);
+
+    // when we input reads, dbgh5 is executed, so its options are needed here
+    getParser()->push_back(Graph::getOptionsParser(false), 1);
 }
 
 /*********************************************************************
@@ -84,30 +87,19 @@ Minia::Minia () : Tool ("minia")
 *********************************************************************/
 void Minia::execute ()
 {
- if (getInput()->get(STR_VERSION) != 0){
-        cout << "Minia from GATB version "<< STR_LIBRARY_VERSION << endl;
-        return;
-    }
-
-	Graph graph;
+ 	Graph graph;
 
 	if (getInput()->get(STR_URI_GRAPH) != 0)
 	{
 		graph = Graph::load (getInput()->getStr(STR_URI_GRAPH));
 	}
-	else
-	{
-
-		if (getInput()->get(STR_URI_INPUT) != 0)
-		{
-			graph = Graph::create (getInput());
-
-		}
-		else
-		{
-			cout << "Specifiy -graph or -in \n";
-			throw OptionFailure(*getParser());
-		}
+	else if (getInput()->get(STR_URI_INPUT) != 0)
+    {
+        graph = Graph::create (getInput());
+    }
+    else
+    {
+        throw OptionFailure (getParser(), "Specifiy -graph or -in");
 	}
 
     /** We build the contigs. */

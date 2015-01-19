@@ -36,9 +36,7 @@ int main (int argc, char* argv[])
 
     catch (OptionFailure& e)
     {
-        e.getParser().displayErrors (stdout);
-        e.getParser().displayHelp   (stdout);
-        return EXIT_FAILURE;
+        return e.displayErrors (cout);
     }
 
     catch (Exception& e)
