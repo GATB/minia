@@ -74,7 +74,7 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_back (assemblyParser);
 
     // when we input reads, dbgh5 is executed, so its options are needed here
-    getParser()->push_back(Graph::getOptionsParser(false), 1);
+    getParser()->push_back(Graph::getOptionsParser(false, true), 1);
 }
 
 /*********************************************************************
