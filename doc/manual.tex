@@ -74,7 +74,11 @@ Minia now uses the Cascading Bloom filters improvement (http://arxiv.org/abs/130
 The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. We recommend that you use the KmerGenie software to automatically find the best $k$ for your dataset.
 
 \vitem+abundance+
-The \verb+abundance+ is used to remove erroneous, low-abundance $k$-mers. This parameter also strongly depends on the dataset. Any $k$-mer that appears strictly less than \emph{abundance} times in the reads will be discarded. A typical value is $3$. \textbf{Setting \emph{abundance} to $1$ is not recommended}, as no erroneous $k$-mer will be discarded, which will likely result in a very large memory usage. In particular, if KmerGenie tells you to set abundance to 1, then still, set it to 2. If the dataset has high coverage, try larger values. The KmerGenie software has an experimental feature (in the output of the command, not in the HTML report) 
+The \verb+abundance+ is used to remove erroneous, low-abundance $k$-mers. This parameter also strongly depends on the dataset. Any $k$-mer that appears strictly less than \emph{abundance} times in the reads will be discarded. A typical value is $3$. It is also called "coverage cut-off" in other software (e.g. Velvet).
+
+KmerGenie has an experimental feature (in the output of the command, not in the HTML report) that reports an optimal coverage cut-off (synonymous to abundance) parameter that exactly corresponds to the abundance parameter of Minia.
+
+\textbf{Setting \emph{abundance} to $1$ is not recommended}, as no erroneous $k$-mer will be discarded, which will likely result in a very large memory usage. In particular, if KmerGenie tells you to set abundance to 1, then still, set it to 2. If the dataset has high coverage, try larger values. 
 
 \vitem+prefix+
 The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \verb+test_assembly+.
