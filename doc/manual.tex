@@ -6,9 +6,9 @@
 \newcommand\vitem[1][]{\SaveVerb[% to use verb in description
     aftersave={\item[\textnormal{\UseVerb[#1]{vsave}}]}]{vsave}}
 
-\title{\Huge \texttt{Minia} --- Short manual}
+\title{\Huge \texttt{Minia-GATB} --- Short manual}
 
-\author{R. Chikhi \& G. Rizk\\
+\author{R. Chikhi \& G. Rizk \& E. Drezen \& D. Lavenier\\
         {\small{rayan.chikhi@ens-cachan.org}}}
 \maketitle
 
@@ -18,56 +18,67 @@
 
 \tableofcontents
 
+\section{Forewords}
+
+Minia-GATB is the codename of a new version of Minia using the GATB library. We will drop the "-GATB" suffix and just refer to it as "Minia". 
+In terms of features, not much has changed: Minia remains a contigs assembler using very low memory. Notable changes are:
+\begin{itemize}
+    \item Different command line format 
+    \item Much faster $k$-mer counting step
+    \item Bubbles are collapsed using the most covered path (coverage information is now available for each node in the graph)
+\end{itemize}
+
 \section{Installation}
 
-To install Minia, just type \verb+make+ in the Minia folder.
+Downlad the binary and run Minia using the comand \verb+./minia+.
+
+To install Minia from the sources, just type: \\ \verb+mkdir build && cd build && cmake .. && make -j 4+ \\
 Minia has been tested on Linux and MacOS systems.
-To run Minia, type \verb+./minia+.
 
 \section{Parameters}
 
-The usage is:\\
+The basic usage is:\\
 
-
-\verb+./minia [input_file] [kmer_size] [min_abundance] [estimated_genome_size] [prefix]+\\
+\begin{verbatim}
+    ./minia -in [input file] -kmer-size [kmer size] \
+            -abundance [abundance value] -out [prefix]
+\end{verbatim}
 
 
 An example command line is:\\
 
 
-\verb+./minia reads.fastq 31 3 100000000 minia_assembly_k31_m3+\\
+\verb+./minia -in reads.fastq -kmer-size 31 -abundance 3 -out minia_assembly_k31_m3+\\
 
-All the parameters need to be specified, in the following order:
+The parameters are:
 
 \begin{enumerate}
 
-\item \verb+input_file+ -- the input file
+    \item \verb+in+ -- the input file(s) (see Section 5 for inputting multiple files)
 
-\item \verb+kmer_size+  -- k-mer length 
+    \item \verb+kmer-size+  -- k-mer length (integer)
 
-\item \verb+min_abundance+ -- filters out k-mers seen less than the specified number of times
+    \item \verb+abundance+ -- specifies how many times a $k$-mer must be seen in the reads to be considered correct (integer)
 
-\item \verb+estimated_genome_size+ -- rough estimation of the size of the genome to assemble, in base pairs.
-
-\item \verb+prefix+ -- any prefix string to store unique temporary files for this assembly
+\item \verb+prefix+ -- any prefix string to store output contigs as well as temporary files for this assembly
 
 \end{enumerate}
 
-Minia now uses the Cascading Bloom filters improvement (http://arxiv.org/abs/1302.7278) by default, thanks to Gustavo Sacomoto for the implementation in Minia. Launch Minia with the \verb!--original! option to revert to the original data structure.
+Minia now uses the Cascading Bloom filters improvement (http://arxiv.org/abs/1302.7278) by default, thanks to Gustavo Sacomoto for the implementation in Minia. Launch Minia with the \verb!-debloom original! option to revert to the original data structure.
 
 
 \section{Explanation of parameters}
 \begin{description}
 
-\vitem+kmer_size+
-The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. A typical value to try for short Illumina reads (read length above $50$) is 27. For longer Illumina reads ($\approx 100$ bp) with sufficient coverage ($>$ 40x), we had good results with $k=43$.
+\vitem+kmer-size+
+The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. We recommend that you use the KmerGenie software to automatically find the best $k$ for your dataset.
 
-\vitem+min_abundance+
-The \verb+min_abundance+ is used to remove erroneous, low-abundance $k$-mers. This parameter also strongly depends on the dataset. It corresponds to the smallest amount of times a correct $k$-mer appears in the reads. A typical value is $3$. Setting it to $1$ is not recommended\footnote{as no erroneous $k$-mer will be discarded, which will likely result in a very large memory usage}. If the dataset has high coverage, try larger values.
+\vitem+abundance+
+The \verb+abundance+ is used to remove erroneous, low-abundance $k$-mers. This parameter also strongly depends on the dataset. Any $k$-mer that appears strictly less than \emph{abundance} times in the reads will be discarded. A typical value is $3$. It is also called "coverage cut-off" in other software (e.g. Velvet).
 
-\vitem+estimated_genome_size+
+KmerGenie has an experimental feature (in the output of the command, not in the HTML report) that reports an optimal coverage cut-off (synonymous to abundance) parameter that exactly corresponds to the abundance parameter of Minia.
 
-The estimated genome size parameter (in base pairs) only controls the memory usage during the first phase of Minia (graph construction). \emph{It has no impact on the assembly}.
+\textbf{Setting \emph{abundance} to $1$ is not recommended}, as no erroneous $k$-mer will be discarded, which will likely result in a very large memory usage. In particular, if KmerGenie tells you to set abundance to 1, then still, set it to 2. If the dataset has high coverage, try larger values. 
 
 \vitem+prefix+
 The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \verb+test_assembly+.
@@ -79,7 +90,7 @@ The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \ver
 \begin{description}
 \item \emph{FASTA/FASTQ}
 
-Minia assembles any type of Illumina reads, given in the FASTA or FASTQ format. Paired or mate-pairs reads are OK, but keep in mind that Minia discards pairing information.
+Minia assembles any type of Illumina reads, given in the FASTA or FASTQ format. Giving paired or mate-pairs reads as input is OK, but keep in mind that Minia won't use pairing information.
 \item \emph{Multipe Files}
 
  Minia can assemble multiple input files. Just create a text file containing the list of read files, one file name per line, and pass this list as the first parameter of Minia (instead of a FASTA/FASTQ file). Therefore the parameter \verb+input_file+ can be either (i) the read file itself (FASTA/FASTQ/compressed), or (ii) a file containing a list of file names.
@@ -99,7 +110,7 @@ The output of Minia is a set of contigs in the FASTA format, in the file \verb+[
 
 \section{Memory usage}
 
-We estimate that the memory usage of Minia is roughly $2$ GB of RAM per gigabases in the target genome to assemble. It is independent of the coverage of the input dataset, provided that the \verb!min_abundance! parameter is correctly set. For example, a human genome was assembled in $5.7$ GB of RAM. This was using the original data structure; the current implementation relies on Cascading Bloom filters and should use $\approx 1-2$ GB less memory. A better estimation of the memory usage can be found in the Appendix.
+We estimate that the memory usage of Minia is roughly $1$ GB of RAM per gigabases in the target genome to assemble. It is independent of the coverage of the input dataset, provided that the \verb!abundance! parameter is correctly set. For example, a human genome was assembled in $5.7$ GB of RAM. This was using the original data structure; the current implementation relies on Cascading Bloom filters and uses $\approx 4$ GB. A better estimation of the memory usage can be found in the Minia article.
 
 \section{Disk usage}
 
@@ -107,18 +118,10 @@ Minia writes large temporary files during the k-mer counting phase. These files 
 
 \section{Larger $k$-mer lengths}
 
-Minia supports arbitrary large $k$-mer lengths. To compile Minia for $k$-mer lengths up to, say, 100, type:
+Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source, to support $k$-mer lengths up to, say, 160, type this in the build folder:
 \begin{verbatim}
-make clean && make k=100
+rm -Rf CMake* && cmake -Dk4=160 .. && make
 \end{verbatim}
-
-\section{Appendixes}
-
-The rest of this manual describes the data structure used by Minia.
-The first text is from an original research article published at WABI 2012. The second text is an improvement made and implemented in Minia by other authors, published at WABI 2013.
-
-%\includepdf[pages=-]{../paper/wabi12.pdf}
-%\includepdf[pages=-]{../paper/cascading-wabi13.pdf}
 
 \end{document}
 
