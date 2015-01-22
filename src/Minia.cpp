@@ -40,7 +40,6 @@ static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
 static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
 static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
-static const char* STR_URI_GRAPH        = "-graph";
 static const char* STR_FASTA_LINE_SIZE  = "-fasta-line";
 
 static const char* progressFormat0 = "Assembly                               ";
@@ -66,7 +65,7 @@ Minia::Minia () : Tool ("minia")
 	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
-	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('monument', 'unitig')", false,  "monument"  ));
+	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
 	assemblyParser->push_front (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
@@ -74,7 +73,12 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_back (assemblyParser);
 
     // when we input reads, dbgh5 is executed, so its options are needed here
-    getParser()->push_back(Graph::getOptionsParser(false, true), 1);
+    IOptionsParser* graphParser = Graph::getOptionsParser(false, true);
+
+    // we hide the STR_URI_INPUT option, otherwise we would have it twice
+    if (IOptionsParser* p = graphParser->getParser(STR_URI_INPUT))  {  p->setVisible(false); }
+
+    getParser()->push_back(graphParser, 1);
 }
 
 /*********************************************************************
