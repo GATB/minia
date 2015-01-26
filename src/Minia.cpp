@@ -60,7 +60,7 @@ Minia::Minia () : Tool ("minia")
     /** We add options specific to Minia (most important at the end). */
 	OptionsParser* assemblyParser = new OptionsParser ("assembly");
 
-	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per fasta line (0 means one line)",  false, "0"));
+	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per line in fasta output (0 means one line)",  false, "0"));
 	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
