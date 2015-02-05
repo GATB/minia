@@ -1,18 +1,21 @@
-no readme? :(
+Type `bin/minia` for usage.
 
-This is a port of Minia using the GATB library.
+short manual: ./manual/manual.pdf
 
-Casual users should use the original Minia for now, until a proper readme exists for Minia-GATB: 
+we have set up a Q&A website, see the Support section in http://minia.genouest.org
 
-http://minia.genouest.org/
-
-
-
+to contact an author directly: rayan.chikhi@ens-cachan.org
 
 
 Compilation tips
 ----------------
 
-
 If cmake complains that pdflatex/bibtex are absent, compile with: 
-cmake -DSKIP_DOC=1
+    
+    cmake -DSKIP_DOC=1
+
+
+Disregard this
+--------------
+
+    cmake .. -DGFORGE_USER=chikhi -DMAJOR=2 -DMINOR=0 -DPATCH=1 && make -j 4
