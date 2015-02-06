@@ -45,11 +45,11 @@ add_executable        (${PROJECT_NAME}  ${ProjectFiles})
 # we define which libraries to be linked with project binary
 target_link_libraries (${PROJECT_NAME}  ${gatb-core-libraries})
 
-# attempt at static linking, not sure if it works properly, anyway disabled because -static-libgcc is not available on clang (Claire's), obviously
-#set_target_properties(minia PROPERTIES LINK_SEARCH_START_STATIC 1)
-#set_target_properties(minia PROPERTIES LINK_SEARCH_END_STATIC 1)
-#set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-#set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+# attempt at static linking, not sure if it works properly
+set_target_properties(minia PROPERTIES LINK_SEARCH_START_STATIC 1)
+set_target_properties(minia PROPERTIES LINK_SEARCH_END_STATIC 1)
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static")
 
 ################################################################################
 #  DOC 
