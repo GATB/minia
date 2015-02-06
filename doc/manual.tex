@@ -94,13 +94,18 @@ Minia assembles any type of Illumina reads, given in the FASTA or FASTQ format. 
 \item \emph{Multipe Files}
 
  Minia can assemble multiple input files. Just create a text file containing the list of read files, one file name per line, and pass this list as the first parameter of Minia (instead of a FASTA/FASTQ file). Therefore the parameter \verb+input_file+ can be either (i) the read file itself (FASTA/FASTQ/compressed), or (ii) a file containing a list of file names.
-\item \emph{line format}
+
+\item \emph{Line format}
 
  In FASTA files, each read can be split into multiple lines, whereas in FASTQ, each read sequence must be in a single line.
 
-\item \emph{gzip compression}
+\item \emph{Gzip compression}
 
 Minia can direclty read files compressed with gzip. Compressed files should end with '.gz'. Input files of different types can be mixed (i.e. gzipped or not, in FASTA or FASTQ)
+
+\item \emph{Graph input}
+
+Minia can take as input a graph in the HDF5 format, constructed using the dbgh5 program, or a different GATB tool, or from a previous run of Minia (useful when one wants to tweak assembly parameters). Use the \verb+-graph+ parameter to specify the graph, instead of the \verb+-in+ parameter.
 
 \end{description}
 
