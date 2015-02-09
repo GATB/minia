@@ -49,7 +49,12 @@ target_link_libraries (${PROJECT_NAME}  ${gatb-core-libraries})
 set_target_properties(minia PROPERTIES LINK_SEARCH_START_STATIC 1)
 set_target_properties(minia PROPERTIES LINK_SEARCH_END_STATIC 1)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static")
+if (APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++") #removed -static because doesn't work on mac's
+else()
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static")
+endif()
+
 
 ################################################################################
 #  DOC 
