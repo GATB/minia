@@ -276,7 +276,7 @@ void Minia::buildSequence (
 
     /** We set the sequence comment. */
     stringstream ss1;
-    ss1 << nbContigs << "__len__" << length << " ";
+    ss1 << nbContigs << "__len__" << length;
     seq._comment = ss1.str();
 
     /** We set the data length. */
