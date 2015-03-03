@@ -50,7 +50,7 @@ An example command line is:\\
 
 \verb+./minia -in reads.fastq -kmer-size 31 -abundance-min 3 -out minia_assembly_k31_m3+\\
 
-The parameters are:
+The main parameters are:
 
 \begin{enumerate}
 
@@ -88,6 +88,13 @@ The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \ver
 \section{Input}
 
 \begin{description}
+\item \emph{Larger $k$-mer lengths}
+
+Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source, to support $k$-mer lengths up to, say, 160, type this in the build folder:
+\begin{verbatim}
+rm -Rf CMake* && cmake -Dk4=160 .. && make
+\end{verbatim}
+
 \item \emph{FASTA/FASTQ}
 
 Minia assembles any type of Illumina reads, given in the FASTA or FASTQ format. Giving paired or mate-pairs reads as input is OK, but keep in mind that Minia won't use pairing information.
@@ -113,6 +120,16 @@ Minia can take as input a graph in the HDF5 format, constructed using the dbgh5 
 
 The output of Minia is a set of contigs in the FASTA format, in the file \verb+[prefix].contigs.fa+. 
 
+\subsection*{Creating unitigs}
+
+Minia supports the creation of unitigs. Use the following command line: 
+\begin{verbatim}
+-starter simple -no-length-cutoff -traversal unitig
+\end{verbatim}
+
+The \verb+-starter simple+ option is to turn off Minia's heuristics for starting node selection (which avoid starting inside a bubble).
+Note that there is a known bug in the \verb+-starter simple+ behavior: some of the unitigs of length k won't be returned (technically: the branching nodes which are neighbors of branching nodes are not returned).
+
 \section{Memory usage}
 
 We estimate that the memory usage of Minia is roughly $1$ GB of RAM per gigabases in the target genome to assemble. It is independent of the coverage of the input dataset, provided that the \verb!abundance-min! parameter is correctly set. For example, a human genome was assembled in $5.7$ GB of RAM. This was using the original data structure; the current implementation relies on Cascading Bloom filters and uses $\approx 4$ GB. A better estimation of the memory usage can be found in the Minia article.
@@ -120,13 +137,6 @@ We estimate that the memory usage of Minia is roughly $1$ GB of RAM per gigabase
 \section{Disk usage}
 
 Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive. 
-
-\section{Larger $k$-mer lengths}
-
-Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source, to support $k$-mer lengths up to, say, 160, type this in the build folder:
-\begin{verbatim}
-rm -Rf CMake* && cmake -Dk4=160 .. && make
-\end{verbatim}
 
 \end{document}
 
