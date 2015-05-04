@@ -23,6 +23,7 @@
 
 #include <Minia.hpp>
 #include <NodeSelector.hpp>
+#include <GraphSimplification.hpp>
 
 #include <fstream>
 
@@ -92,7 +93,7 @@ Minia::Minia () : Tool ("minia")
 void Minia::execute ()
 {
  	Graph graph;
-
+// TODO: tell graph to not construct branching nodes in the event of mphf != none
 	if (getInput()->get(STR_URI_GRAPH) != 0)
 	{
 		graph = Graph::load (getInput()->getStr(STR_URI_GRAPH));
@@ -111,6 +112,44 @@ void Minia::execute ()
 
     /** We gather some statistics. */
     getInfo()->add (1, getTimeInfo().getProperties("time"));
+}
+
+void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& graph, IBank *outputBank)
+{
+
+    Path consensusRight;
+    Path consensusLeft;
+    Sequence seq (Data::ASCII);
+
+    /** We compute right and left extensions of the starting node. */
+    unsigned int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
+    unsigned int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING, consensusLeft);
+
+    unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
+
+    /** We keep this contig if its size is long enough. */
+    if ((unsigned long)lenTotal >= 2*graph.getKmerSize()+1 || isNoLengthCutoff)
+    {
+        /** We create the contig sequence. */
+        buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
+
+        /** We add the sequence into the output bank. */
+        outputBank->insert (seq);
+
+        nbContigs += 1;
+        totalNt   += lenTotal;
+
+        traversal->commit_stats();
+
+        if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
+        if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
+        if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
+    }
+    else
+    {
+        traversal->revert_stats();
+        nbSmallContigs++;
+    }
 }
 
 /*********************************************************************
@@ -146,93 +185,127 @@ void Minia::assemble (const Graph& graph)
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    /** We get an iterator over the branching nodes. */
-    ProgressGraphIterator<BranchingNode,ProgressTimerAndSystem> itBranching (graph.iterator<BranchingNode>(), progressFormat0);
+    bool hasMphf = (graph.getState() & Graph::STATE_MPHF_DONE);
+    bool legacyTraversal = !hasMphf;
 
-    /** We create the Terminator. */
-    BranchingTerminator terminator (graph);
+    Terminator *terminator;
+    INodeSelector* starter = NULL;
+    string traversalKind;
+    bool simplifyGraph = false;
 
-    /** We create the starting node selector according to the user choice. */
-    INodeSelector* starter = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, terminator);
+    // Legacy Minia traversal mode: index branching nodes to mark kmers, use branching nodes to start traversals
+    if (legacyTraversal)
+    { 
+        /** We create the Terminator. */
+        terminator = new BranchingTerminator(graph);
+
+        /** We create the starting node selector according to the user choice. */
+        starter = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, *terminator);
+        
+        traversalKind = getInput()->getStr(STR_TRAVERSAL_KIND);
+    }
+    else
+    {
+        terminator = new MPHFTerminator(graph);
+        traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
+        simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
+    }
+    LOCAL (terminator);
     LOCAL (starter);
 
     /** We create the Traversal instance according to the user choice. */
     Traversal* traversal = Traversal::create (
-        getInput()->getStr(STR_TRAVERSAL_KIND),
+        traversalKind,
         graph,
-        terminator,
+        *terminator,
         getInput()->getInt (STR_CONTIG_MAX_LEN),
         getInput()->getInt (STR_BFS_MAX_DEPTH),
         getInput()->getInt (STR_BFS_MAX_BREADTH)
     );
     LOCAL (traversal);
 
-    Path consensusRight;
-    Path consensusLeft;
+    nbContigs         = 0;
+    nbSmallContigs    = 0;
+    totalNt           = 0;
+    maxContigLen      = 0;
+    maxContigLenLeft  = 0;
+    maxContigLenRight = 0;
 
-    u_int64_t nbContigs         = 0;
-    u_int64_t nbSmallContigs    = 0;
-    u_int64_t totalNt           = 0;
-    u_int64_t maxContigLen      = 0;
-    u_int64_t maxContigLenLeft  = 0;
-    u_int64_t maxContigLenRight = 0;
+    isNoLengthCutoff = getParser()->saw(STR_NO_LENGTH_CUTOFF);
 
-    bool isNoLengthCutoff = getParser()->saw(STR_NO_LENGTH_CUTOFF);
+    string tipRemoval = "", bubbleRemoval = "";
 
-    Sequence seq (Data::ASCII);
-
-    /** We loop over the branching nodes. */
-    for (itBranching.first(); !itBranching.isDone(); itBranching.next())
+    if (legacyTraversal)
     {
-        DEBUG ((cout << endl << "-------------------------- " << graph.toString (itBranching.item()) << " -------------------------" << endl));
+        /** We get an iterator over the branching nodes. */
+        ProgressGraphIterator<BranchingNode,ProgressTimerAndSystem> itBranching (graph.iterator<BranchingNode>(), progressFormat0);
 
-        Node startingNode;
-
-        // keep looping while a starting kmer is available from this kmer
-        // everything will be marked during the traversal()'s
-        while (starter->select (itBranching.item(), startingNode) == true)
+        /** We loop over the branching nodes. */
+        for (itBranching.first(); !itBranching.isDone(); itBranching.next())
         {
-            /** We compute right and left extensions of the starting node. */
-            int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
-            int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING, consensusLeft);
+            DEBUG ((cout << endl << "-------------------------- " << graph.toString (itBranching.item()) << " -------------------------" << endl));
 
-            int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
+            Node startingNode;
 
-            /** We keep this contig if its size is long enough. */
-            if (lenTotal >= 2*graph.getKmerSize()+1 || isNoLengthCutoff)
+            // keep looping while a starting kmer is available from this kmer
+            // everything will be marked during the traversal()'s
+            while (starter->select (itBranching.item(), startingNode) == true)
             {
-                /** We create the contig sequence. */
-                buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
+                assembleFrom(startingNode, traversal, graph, outputBank);        
 
-                /** We add the sequence into the output bank. */
-                outputBank->insert (seq);
+            } /* end of  while (starter->select() */
 
-                nbContigs += 1;
-                totalNt   += lenTotal;
+        } /* end of for (itBranching.first() */
+    }
+    else
+    {
+        /** We get an iterator over all nodes . */
+        ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (graph.iterator<Node>(), progressFormat0);
 
-                traversal->commit_stats();
+        // if we want unitigs, then don't simplify the graph; else do it
+        if (simplifyGraph)
+        {
+            GraphSimplification graphSimplification(graph);
 
-                if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
-                if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
-                if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
-            }
-            else
-            {
-                traversal->revert_stats();
-                nbSmallContigs++;
-            }
+            unsigned long nbTipsRemoved_1 = graphSimplification.removeTips();
+            unsigned long nbTipsRemoved_2 = graphSimplification.removeTips();
 
-        } /* end of  while (starter->select() */
+            unsigned long nbBubblesRemoved_1 = graphSimplification.removeBubbles();
+            unsigned long nbBubblesRemoved_2 = graphSimplification.removeBubbles();
+            
+            unsigned long nbTipsRemoved_3 = graphSimplification.removeTips();
+            
+            unsigned long nbBubblesRemoved_3 = graphSimplification.removeBubbles();
+            
+            tipRemoval = std::to_string(nbTipsRemoved_1) + " + " + std::to_string(nbTipsRemoved_2) + " + " + std::to_string(nbTipsRemoved_3) ;
+            bubbleRemoval = std::to_string(nbBubblesRemoved_1) + " + " + std::to_string(nbBubblesRemoved_2) +  " + " + std::to_string(nbBubblesRemoved_3);
+        }
 
-    } /* end of for (itBranching.first() */
+        /** We loop over all nodes. */
+        for (itNode.first(); !itNode.isDone(); itNode.next())
+        {
+            Node node = itNode.item();
+
+            // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
+            if (terminator->is_marked (node))  {  continue;   }
+            if (graph.isNodeDeleted(node)) { continue; }
+            
+            DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
+
+            assembleFrom(node, traversal, graph, outputBank);
+        }
+
+    }
 
     /** We add the input parameters to the global properties. */
     getInfo()->add (1, getInput());
 
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
-    getInfo()->add (2, "traversal",         "%s", traversal->getName().c_str());
-    getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
+    getInfo()->add (2, "traversal",         "%s", getInput()->getStr(STR_TRAVERSAL_KIND).c_str());
+    getInfo()->add (2, "using_mphf",    "%d", hasMphf);
+    if (legacyTraversal)
+        getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
@@ -240,15 +313,25 @@ void Minia::assemble (const Graph& graph)
     getInfo()->add (2, "max_length_left",   "%d", maxContigLenLeft);
     getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
 
-    getInfo()->add (2, "debugging traversal stats");
-    getInfo()->add (2, "large breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
-    getInfo()->add (2, "large depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
-    getInfo()->add (2, "marked kmer inside traversal",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
-    getInfo()->add (2, "traversal ends with dead-ends",             "%d", traversal->final_stats.couldnt_find_extension);
-    getInfo()->add (2, "in-branching large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
-    getInfo()->add (2, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
-    getInfo()->add (2, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
-    getInfo()->add (2, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
+    if (legacyTraversal)
+    {
+        getInfo()->add (2, "debugging traversal stats");
+        getInfo()->add (2, "large breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
+        getInfo()->add (2, "large depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
+        getInfo()->add (2, "marked kmer inside traversal",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
+        getInfo()->add (2, "traversal ends with dead-ends",             "%d", traversal->final_stats.couldnt_find_extension);
+        getInfo()->add (2, "in-branching large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
+        getInfo()->add (2, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
+        getInfo()->add (2, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
+        getInfo()->add (2, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
+    }
+    else
+    {
+        getInfo()->add (2, "graph simpification stats");
+        getInfo()->add (2, "tips removed",          "%s", tipRemoval.c_str());
+        getInfo()->add (2, "bubbles removed",          "%s", bubbleRemoval.c_str());
+    }
+
 }
 
 /*********************************************************************

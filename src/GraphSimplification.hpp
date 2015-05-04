@@ -1,7 +1,7 @@
 /*****************************************************************************
  *   GATB : Genome Assembly Tool Box
  *   Copyright (C) 2014  INRIA
- *   Authors: R.Chikhi, G.Rizk, E.Drezen
+ *   Authors: R.Chikhi, G.Rizk, D.Lavenier, E.Drezen
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as
@@ -17,8 +17,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
-#ifndef _GATB_TOOLS_MINIA_HPP_
-#define _GATB_TOOLS_MINIA_HPP_
+#ifndef _GATB_TOOLS_GRAPH_SIMPLIFICATION_HPP_
+#define _GATB_TOOLS_GRAPH_SIMPLIFICATION_HPP_
 
 /********************************************************************************/
 
@@ -26,48 +26,22 @@
 
 /********************************************************************************/
 
-/**
- */
-class Minia : public gatb::core::tools::misc::impl::Tool
+/** */
+class GraphSimplification : public SmartPointer
 {
 public:
 
-    /** Constructor. */
-    Minia ();
+    GraphSimplification (const Graph& graph)
+        : _graph(graph){}
 
-private:
+    unsigned long removeTips();
+    unsigned long removeBubbles();
 
-    /** \copydoc Tool::execute. */
-    void  execute ();
-
-    /** */
-    void assemble (const Graph& graph);
-    
-    /** */
-    void assembleFrom (Node startingNode, Traversal *traversal, const Graph& graph, IBank *outputBank);
-
-    /** */
-    void buildSequence (
-        const Graph& graph,
-        const Node& startingNode,
-        size_t length,
-        size_t nbContigs,
-        const Path& consensusRight,
-        const Path& consensusLeft,
-        Sequence& seq
-    );
-
-    bool isNoLengthCutoff;
-    u_int64_t nbContigs         ;
-    u_int64_t nbSmallContigs    ;
-    u_int64_t totalNt           ;
-    u_int64_t maxContigLen      ;
-    u_int64_t maxContigLenLeft  ;
-    u_int64_t maxContigLenRight ;
-
+protected:
+    const Graph&  _graph;
 };
 
 /********************************************************************************/
 
-#endif /* _GATB_TOOLS_MINIA_HPP_ */
+#endif 
 
