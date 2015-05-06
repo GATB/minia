@@ -129,8 +129,8 @@ unsigned long GraphSimplification::removeBubbles()
     
     // constants are the same as legacyTraversal
     // small change for depth: the max with 3k-1 (a bit arbitrary..)
-    int max_depth = std::max(500, _graph.getKmerSize() * 3);
-    int max_breadth = 20; 
+    unsigned int max_depth = std::max(500, 3* (int) _graph.getKmerSize());
+    unsigned int max_breadth = 20; 
 
     /** We get an iterator over all nodes . */
     ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), progressFormat1);
@@ -168,7 +168,7 @@ unsigned long GraphSimplification::removeBubbles()
                 break;
 
             // don't allow a depth too large
-            if ((int)frontline.depth() > max_depth)
+            if (frontline.depth() > max_depth)
             {  
                 //    stats.couldnt_traverse_bubble_depth++;
                 DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline exceeds depth" << endl);
@@ -177,7 +177,7 @@ unsigned long GraphSimplification::removeBubbles()
             }
 
             // don't allow a breadth too large
-            if ((int)frontline.size()> max_breadth)
+            if (frontline.size()> max_breadth)
             {  
                 //    stats.couldnt_traverse_bubble_breadth++;
                 DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline exceeds breadth" << endl);
