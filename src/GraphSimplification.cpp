@@ -208,8 +208,6 @@ unsigned long GraphSimplification::removeBubbles()
             cleanBubble = false;
         }
 
-        printf("node %s is a bubble? %d\n",_graph.toString(startingNode).c_str(),cleanBubble);
-
         if (!cleanBubble)
             continue;
        
@@ -276,8 +274,10 @@ unsigned long GraphSimplification::removeBubbles()
         {            
             Node node = _graph.buildNode((char *)(p_str.c_str()), i); 
             int nb_erased = all_involved_extensions.erase(node.kmer);
-            if (nb_erased != 1)
-                cout << "error: wanted to keep kmer" << _graph.toString (node) << "but wasn't there" << endl;
+            // TODO i don't recall if there is a potential problem/fix here or nothing to see
+            //if (nb_erased != 1)
+            //    cout << "error: wanted to keep kmer" << _graph.toString (node) << "but wasn't there" << endl;
+            
             //DEBUG(cout << endl << "keeping bubble node: " <<  _graph.toString (node) << endl);
         }
         all_involved_extensions.erase(startNode.kmer);
