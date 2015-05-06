@@ -93,7 +93,10 @@ Minia::Minia () : Tool ("minia")
 void Minia::execute ()
 {
  	Graph graph;
-// TODO: tell graph to not construct branching nodes in the event of mphf != none
+
+    // graph to not construct branching nodes in the event of mphf != none
+    if (getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+
 	if (getInput()->get(STR_URI_GRAPH) != 0)
 	{
 		graph = Graph::load (getInput()->getStr(STR_URI_GRAPH));
