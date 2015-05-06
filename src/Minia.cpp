@@ -272,7 +272,7 @@ void Minia::assemble (const Graph& graph)
 
             unsigned long nbBubblesRemoved_1 = graphSimplification.removeBubbles();
             unsigned long nbBubblesRemoved_2 = graphSimplification.removeBubbles();
-            
+           
             unsigned long nbTipsRemoved_3 = graphSimplification.removeTips();
             
             unsigned long nbBubblesRemoved_3 = graphSimplification.removeBubbles();

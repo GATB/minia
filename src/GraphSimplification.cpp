@@ -52,12 +52,11 @@ unsigned long GraphSimplification::removeTips()
 
             /** We follow the simple path to get its length */
             Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has a single neighbor
-            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].to, neighbors[0].direction);
+            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction);
             bool isShort = true;
             int pathLen = 2; // node and neighbors[0].to
             vector<Node> nodes;
             nodes.push_back(node);
-            nodes.push_back(neighbors[0].to);
             for (itNodes.first(); !itNodes.isDone(); itNodes.next())
             {
                 nodes.push_back(*itNodes);
@@ -100,7 +99,11 @@ unsigned long GraphSimplification::removeTips()
                     }
                 }
 #endif
+
+
                 bool isTip = true; // TODO maybe: (mean_abundance < local_min_abundance); but in fact, we didn't use that in legacyTraversal. maybe it's a mistake.
+
+
                 if (isTip)
                 {
                     // delete it
@@ -138,16 +141,23 @@ unsigned long GraphSimplification::removeBubbles()
     {
         Node node = itNode.item();
 
-        if (_graph.outdegree(node) <= 1)
+        if (_graph.outdegree(node) <= 1 && _graph.indegree(node) <= 1)
             continue;
 
         // we're at the start of a branching
         Node startingNode = node;
         Node previousNode = node; // dummy, no consequence  
         set<Node> all_involved_extensions;
-        Direction dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
-        // FrontlineNoInBranching, because we don't want to check for in-branching.
-        FrontlineNoInBranching frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
+
+        // pick a direction. for those complex nodes that might be forming two bubbles, let's just pop one of the two bubbles only, the other will follow on the other end
+        Direction dir;
+        if (_graph.outdegree(node) > 1)
+            dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
+        else
+            dir = DIR_INCOMING;
+
+        FrontlineReachable frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
+        // one would think using FrontlineBranching will pop more bubbles less conservatively. actually wasn't the case in my early tests. need to test more.
 
         bool cleanBubble = true;
 
@@ -160,6 +170,7 @@ unsigned long GraphSimplification::removeBubbles()
             if ((int)frontline.depth() > max_depth)
             {  
                 //    stats.couldnt_traverse_bubble_depth++;
+                DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline exceeds depth" << endl);
                 cleanBubble = false;
                 break;
             }
@@ -168,6 +179,7 @@ unsigned long GraphSimplification::removeBubbles()
             if ((int)frontline.size()> max_breadth)
             {  
                 //    stats.couldnt_traverse_bubble_breadth++;
+                DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline exceeds breadth" << endl);
                 cleanBubble = false;
                 break;
             }
@@ -178,6 +190,7 @@ unsigned long GraphSimplification::removeBubbles()
             if (frontline.size() == 0)  
             {
                 //    stats.couldnt_find_extension++;
+                DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline empty" << endl);
                 cleanBubble = false;
                 break;
             }
@@ -189,7 +202,12 @@ unsigned long GraphSimplification::removeBubbles()
         while (1);
 
         if (frontline.size()!=1)
+        {
+            DEBUG(cout << endl << "Candidate bubble from node " <<  _graph.toString(startingNode) << " frontline ends of size " << frontline.size() << endl);
             cleanBubble = false;
+        }
+
+        printf("node %s is a bubble? %d\n",_graph.toString(startingNode).c_str(),cleanBubble);
 
         if (!cleanBubble)
             continue;
@@ -202,7 +220,7 @@ unsigned long GraphSimplification::removeBubbles()
         MonumentTraversal * traversal = new MonumentTraversal(
                 _graph,
                 dummyTerminator,
-                10000,
+                10000000,
                 max_depth,
                 max_breadth
                 );
@@ -228,26 +246,45 @@ unsigned long GraphSimplification::removeBubbles()
         }
 
         // ready to pop the bubble and keep only the validated consensus
-        DEBUG("READY TO POP!\n");
+        DEBUG(cout << endl << "READY TO POP!\n");
 
         // also taken from Traversal
         // naive conversion from path to string
         Path p = consensus;
-        string p_str = _graph.toString(p.start);
-        for (size_t i = 0; i < p.size(); i++)
-            p_str.push_back(p.ascii(i));
+        
+        string p_str;
 
-        long mean_abundance = 0;
+        if (dir == DIR_INCOMING)
+        {
+            // TODO: port that change into Traversal
+            Node revstart = endNode;
+            p_str = _graph.toString(revstart);
+            for (size_t i = 0; i < p.size(); i++)
+                p_str.push_back(p.ascii(p.size()-1-i));
+        }
+        else
+        {
+            p_str = _graph.toString(p.start);
+            for (size_t i = 0; i < p.size(); i++)
+                p_str.push_back(p.ascii(i));
+        }
+
+        DEBUG(cout << "consensus string to keep: " << p_str << endl);
+
         for (size_t i = 0; i < p.size(); i++)
         {            
             Node node = _graph.buildNode((char *)(p_str.c_str()), i); 
-            all_involved_extensions.erase(node.kmer);
+            int nb_erased = all_involved_extensions.erase(node.kmer);
+            if (nb_erased != 1)
+                cout << "error: wanted to keep kmer" << _graph.toString (node) << "but wasn't there" << endl;
+            //DEBUG(cout << endl << "keeping bubble node: " <<  _graph.toString (node) << endl);
         }
+        all_involved_extensions.erase(startNode.kmer);
         all_involved_extensions.erase(endNode.kmer);
 
         for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
         {
-            DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
+            //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
             _graph.deleteNode(*itVecNodes);
         }
 
