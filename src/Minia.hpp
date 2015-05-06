@@ -57,7 +57,7 @@ private:
         Sequence& seq
     );
 
-    bool isNoLengthCutoff;
+    bool keepIsolatedTigs;
     u_int64_t nbContigs         ;
     u_int64_t nbSmallContigs    ;
     u_int64_t totalNt           ;

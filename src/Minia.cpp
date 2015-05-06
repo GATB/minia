@@ -40,8 +40,8 @@ static const char* STR_STARTER_KIND    = "-starter";
 static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
 static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
 static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
-static const char* STR_NO_LENGTH_CUTOFF = "-no-length-cutoff";
-static const char* STR_FASTA_LINE_SIZE  = "-fasta-line";
+static const char* STR_FASTA_LINE_SIZE = "-fasta-line";
+static const char* STR_KEEP_ISOLATED   = "-keep-isolated";
 
 static const char* progressFormat0 = "Assembly                               ";
 
@@ -67,7 +67,7 @@ Minia::Minia () : Tool ("minia")
 	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
-	assemblyParser->push_front (new OptionNoParam  (STR_NO_LENGTH_CUTOFF, "turn off length cutoff of 2*k in output sequences", false));
+	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= 150 bp) isolated output sequences", false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
 
@@ -126,12 +126,14 @@ void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& g
 
     /** We compute right and left extensions of the starting node. */
     unsigned int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
+    bool isolatedLeft = traversal->deadend;
     unsigned int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING, consensusLeft);
+    bool isolatedRight = traversal->deadend;
 
     unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
 
-    /** We keep this contig if its size is long enough. */
-    if ((unsigned long)lenTotal >= 2*graph.getKmerSize()+1 || isNoLengthCutoff)
+    /** We keep this contig if its not [shorter than 150 bp and isolated (SPAdes criterion)], or if -keep-isolated passed */
+    if (lenTotal > 150 || (lenTotal <= 150 && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
     {
         /** We create the contig sequence. */
         buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
@@ -234,7 +236,7 @@ void Minia::assemble (const Graph& graph)
     maxContigLenLeft  = 0;
     maxContigLenRight = 0;
 
-    isNoLengthCutoff = getParser()->saw(STR_NO_LENGTH_CUTOFF);
+    keepIsolatedTigs = getParser()->saw(STR_KEEP_ISOLATED);
 
     string tipRemoval = "", bubbleRemoval = "";
 
