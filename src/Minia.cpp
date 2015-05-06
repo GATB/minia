@@ -319,20 +319,24 @@ void Minia::assemble (const Graph& graph)
     if (legacyTraversal)
     {
         getInfo()->add (2, "debugging traversal stats");
-        getInfo()->add (2, "large breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
-        getInfo()->add (2, "large depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
-        getInfo()->add (2, "marked kmer inside traversal",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
-        getInfo()->add (2, "traversal ends with dead-ends",             "%d", traversal->final_stats.couldnt_find_extension);
-        getInfo()->add (2, "in-branching large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
-        getInfo()->add (2, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
-        getInfo()->add (2, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
-        getInfo()->add (2, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
+        getInfo()->add (3, "large breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
+        getInfo()->add (3, "large depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
+        getInfo()->add (3, "marked kmer inside traversal",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
+        getInfo()->add (3, "traversal ends with dead-ends",             "%d", traversal->final_stats.couldnt_find_extension);
+        getInfo()->add (3, "in-branching large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
+        getInfo()->add (3, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
+        getInfo()->add (3, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
+        getInfo()->add (3, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
     }
     else
     {
         getInfo()->add (2, "graph simpification stats");
-        getInfo()->add (2, "tips removed",          "%s", tipRemoval.c_str());
-        getInfo()->add (2, "bubbles removed",          "%s", bubbleRemoval.c_str());
+        getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
+        getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
+        getInfo()->add (2, "traversal stats");
+        getInfo()->add (3, "contig end: no extension",             "%d", traversal->final_stats.couldnt_no_extension);
+        getInfo()->add (3, "contig end: out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
+        getInfo()->add (3, "contig end: in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
     }
 
 }
