@@ -127,8 +127,9 @@ unsigned long GraphSimplification::removeBubbles()
 {
     unsigned long nbBubblesRemoved = 0;
     
-    // those are the same as legacyTraversal
-    int max_depth = 500;
+    // constants are the same as legacyTraversal
+    // small change for depth: the max with 3k-1 (a bit arbitrary..)
+    int max_depth = std::max(500, _graph.getKmerSize() * 3);
     int max_breadth = 20; 
 
     /** We get an iterator over all nodes . */
