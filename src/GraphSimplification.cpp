@@ -24,6 +24,7 @@
 #define DEBUG(a)   //a
 
 #include <vector>
+#include <set>
 #include <GraphSimplification.hpp>
 
 using namespace std;
@@ -64,7 +65,7 @@ unsigned long GraphSimplification::removeTips()
         if (_graph.indegree(node) + _graph.outdegree(node) == 1)
         {
             if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
-            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel
+            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
 
             //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
@@ -136,7 +137,9 @@ unsigned long GraphSimplification::removeTips()
                         unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
                         nodesToDelete[index] = true; // parallel version
                     }
-                    nbTipsRemoved++;
+
+                    __sync_fetch_and_add(&nbTipsRemoved, 1);
+                    
                 }
             }
         }
@@ -185,14 +188,14 @@ unsigned long GraphSimplification::removeBubbles()
     for (unsigned long i = 0; i < nbNodes; i++)
         nodesToDelete[i] = false;
 
+    set<Node> bubblesAlreadyPopped; // endnodes of bubbles already popped
+
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
         if (_graph.outdegree(node) <= 1 && _graph.indegree(node) <= 1)
             return; // parallel
             // continue; // sequential
-
-        if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel
 
         // we're at the start of a branching
         Node startingNode = node;
@@ -330,14 +333,30 @@ unsigned long GraphSimplification::removeBubbles()
         all_involved_extensions.erase(startNode.kmer);
         all_involved_extensions.erase(endNode.kmer);
 
+        // do not pop the same bubble twice (and possibly both paths..)
+        // that's not the most elegant fix ever, because we could have checked earlier, but need to care about thread safety, 
+        // so this is a compromise if check-late-to-avoid-synchro-overhead
+        {
+            LocalSynchronizer local(synchro);
+            if (bubblesAlreadyPopped.find(startNode) == bubblesAlreadyPopped.end() && 
+                    bubblesAlreadyPopped.find(endNode) == bubblesAlreadyPopped.end())
+            {
+                bubblesAlreadyPopped.insert(startNode);
+                bubblesAlreadyPopped.insert(endNode);
+            }
+            else
+                return;
+        }
+
         for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
         {
-            //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
+            DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
             // _graph.deleteNode(*itVecNodes); // sequential
             unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
             nodesToDelete[index] = true; // parallel version
         }
-        nbBubblesRemoved++;
+        
+        __sync_fetch_and_add(&nbBubblesRemoved, 1);
 
         // } // sequential
     }); // parallel
