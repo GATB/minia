@@ -167,6 +167,11 @@ unsigned long GraphSimplification::removeBubbles()
             return; // parallel
             // continue; // sequential
 
+        {
+        // FIXME: throws bad allow when too many threads
+        // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
+        LocalSynchronizer sync (synchro); 
+
         // we're at the start of a branching
         Node startingNode = node;
         Node previousNode = node; // dummy, no consequence  
@@ -175,9 +180,9 @@ unsigned long GraphSimplification::removeBubbles()
         // pick a direction. for those complex nodes that might be forming two bubbles, let's just pop one of the two bubbles only, the other will follow on the other end
         Direction dir;
         if (_graph.outdegree(node) > 1)
-            dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
+        dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
         else
-            dir = DIR_INCOMING;
+        dir = DIR_INCOMING;
 
         FrontlineReachable frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
         // one would think using FrontlineBranching will pop more bubbles less conservatively. actually wasn't the case in my early tests. need to test more.
@@ -219,7 +224,7 @@ unsigned long GraphSimplification::removeBubbles()
             }
 
             if (frontline.size() == 1) // in legacyTraversal: longer contigs but for some reason, higher mismatch rate; TODO: verify it in the context of graph simplification
-                {break;}
+            {break;}
             //if (frontline.size() == 1 &&   (!terminator.isEnabled() || !terminator.is_branching(frontline.front().node)) )  {   break;  }
         }
         while (1);
@@ -232,8 +237,8 @@ unsigned long GraphSimplification::removeBubbles()
 
         if (!cleanBubble)
             return; // parallel
-            // continue; // sequential
-       
+        // continue; // sequential
+
         Node startNode = node; 
         Node endNode = frontline.front().node;
         int traversal_depth = frontline.depth();
@@ -255,7 +260,7 @@ unsigned long GraphSimplification::removeBubbles()
         // if consensus phase failed, stop
         if (!success)
             return; // parallel
-            // continue; // sequential
+        // continue; // sequential
 
         Path consensus;
         consensus.resize (0);
@@ -263,7 +268,7 @@ unsigned long GraphSimplification::removeBubbles()
         bool validated = traversal->validate_consensuses (consensuses, consensus);
         if (!validated)   
             return; // parallel
-            // continue; // sequential
+        // continue; // sequential
 
         // ready to pop the bubble and keep only the validated consensus
         DEBUG(cout << endl << "READY TO POP!\n");
@@ -271,7 +276,7 @@ unsigned long GraphSimplification::removeBubbles()
         // also taken from Traversal
         // naive conversion from path to string
         Path p = consensus;
-        
+
         string p_str;
 
         if (dir == DIR_INCOMING)
@@ -298,15 +303,15 @@ unsigned long GraphSimplification::removeBubbles()
             // TODO i don't recall if there is a potential problem/fix here or nothing to see
             //if (nb_erased != 1)
             //    cout << "error: wanted to keep kmer" << _graph.toString (node) << "but wasn't there" << endl;
-            
+
             //DEBUG(cout << endl << "keeping bubble node: " <<  _graph.toString (node) << endl);
         }
         all_involved_extensions.erase(startNode.kmer);
         all_involved_extensions.erase(endNode.kmer);
 
         {
-            // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
-            LocalSynchronizer sync (synchro); 
+            // should put atomic here
+
             for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
             {
                 //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
@@ -314,7 +319,8 @@ unsigned long GraphSimplification::removeBubbles()
             }
             nbBubblesRemoved++;
         }
-    // } // sequential
+        }
+        // } // sequential
     }); // parallel
     return nbBubblesRemoved;
 }
