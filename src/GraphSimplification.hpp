@@ -32,14 +32,18 @@ class GraphSimplification : public SmartPointer
 public:
 
     GraphSimplification (const Graph& graph, int nbCores)
-        : _graph(graph), _nbCores(nbCores) {}
+        : _nbTipRemovalPasses(0), _nbBubbleRemovalPasses(0), _graph(graph), _nbCores(nbCores) {}
 
     unsigned long removeTips();
     unsigned long removeBubbles();
 
+    int _nbTipRemovalPasses;
+    int _nbBubbleRemovalPasses;
+
 protected:
     const Graph&  _graph;
     int _nbCores;
+
 };
 
 /********************************************************************************/

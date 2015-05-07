@@ -1,3 +1,6 @@
+// This is legacy code
+// we don't use it anymore when MPHF is enabled
+
 /*****************************************************************************
  *   GATB : Genome Assembly Tool Box
  *   Copyright (C) 2014  INRIA

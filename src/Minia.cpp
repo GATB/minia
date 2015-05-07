@@ -272,19 +272,39 @@ void Minia::assemble (const Graph& graph)
         {
             int nbCores = getInput()->getInt(STR_NB_CORES);
             GraphSimplification graphSimplification(graph, nbCores);
-
-            unsigned long nbTipsRemoved_1 = graphSimplification.removeTips();
-            unsigned long nbTipsRemoved_2 = graphSimplification.removeTips();
-
-            unsigned long nbBubblesRemoved_1 = graphSimplification.removeBubbles();
-            unsigned long nbBubblesRemoved_2 = graphSimplification.removeBubbles();
            
-            unsigned long nbTipsRemoved_3 = graphSimplification.removeTips();
-            
-            unsigned long nbBubblesRemoved_3 = graphSimplification.removeBubbles();
-            
-            tipRemoval = std::to_string(nbTipsRemoved_1) + " + " + std::to_string(nbTipsRemoved_2) + " + " + std::to_string(nbTipsRemoved_3) ;
-            bubbleRemoval = std::to_string(nbBubblesRemoved_1) + " + " + std::to_string(nbBubblesRemoved_2) +  " + " + std::to_string(nbBubblesRemoved_3);
+            unsigned long nbTipsRemoved;
+            unsigned long nbBubblesRemoved;
+            do
+            {
+                nbTipsRemoved = graphSimplification.removeTips();
+                if (tipRemoval.size() != 0)
+                    tipRemoval += " + ";
+                tipRemoval += std::to_string(nbTipsRemoved);
+            }
+            while (nbTipsRemoved > 10 && graphSimplification._nbTipRemovalPasses < 20);
+
+            do
+            {
+                nbBubblesRemoved = graphSimplification.removeBubbles();
+                if (bubbleRemoval.size() != 0)
+                    bubbleRemoval += " + ";
+                bubbleRemoval += std::to_string(nbBubblesRemoved);
+            }
+            while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
+
+            do
+            {
+                nbTipsRemoved = graphSimplification.removeTips();
+                nbBubblesRemoved = graphSimplification.removeBubbles();
+                if (tipRemoval.size() != 0)
+                    tipRemoval += " + ";
+                tipRemoval += std::to_string(nbTipsRemoved);
+                if (bubbleRemoval.size() != 0)
+                    bubbleRemoval += " + ";
+                bubbleRemoval += std::to_string(nbBubblesRemoved);
+            }
+            while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
         }
 
         /** We loop over all nodes. */

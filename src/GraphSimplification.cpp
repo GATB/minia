@@ -28,8 +28,8 @@
 
 using namespace std;
 
-static const char* progressFormat0 = "removing tips          ";
-static const char* progressFormat1 = "removing bubbles       ";
+static const char* progressFormat0 = "removing tips,    pass %2d ";
+static const char* progressFormat1 = "removing bubbles, pass %2d ";
 
 unsigned long GraphSimplification::removeTips()
 {
@@ -38,7 +38,9 @@ unsigned long GraphSimplification::removeTips()
     unsigned long nbTipsRemoved = 0;
 
     /** We get an iterator over all nodes . */
-    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), progressFormat0);
+    char buffer[128];
+    sprintf(buffer, progressFormat0, ++_nbTipRemovalPasses);
+    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
 
     // parallel stuff: create a dispatcher ; support atomic operations
     Dispatcher dispatcher (_nbCores);
@@ -50,12 +52,19 @@ unsigned long GraphSimplification::removeTips()
         // Node node = itNode.item();
 
     // parallel stuff
+    vector<bool> nodesToDelete; // don't delete while parallel traversal, do it afterwards
+    unsigned long nbNodes = itNode.size();
+    nodesToDelete.resize(nbNodes); // number of graph nodes
+    for (unsigned long i = 0; i < nbNodes; i++)
+        nodesToDelete[i] = false;
+
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
         if (_graph.indegree(node) + _graph.outdegree(node) == 1)
         {
-            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential
+            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
+            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel
 
             //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
@@ -118,14 +127,14 @@ unsigned long GraphSimplification::removeTips()
                     // delete it
                     //
 
-                    // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
-                    LocalSynchronizer sync (synchro); 
-
                     //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
                     for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
                     {
                         //DEBUG(cout << endl << "deleting tip node: " <<  _graph.toString (*itVecNodes) << endl);
-                        _graph.deleteNode(*itVecNodes);
+                        //_graph.deleteNode(*itVecNodes); // sequential version
+                        
+                        unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
+                        nodesToDelete[index] = true; // parallel version
                     }
                     nbTipsRemoved++;
                 }
@@ -133,6 +142,13 @@ unsigned long GraphSimplification::removeTips()
         }
     // } // sequential
     }); // parallel
+
+    // now delete all nodes, in sequential
+    for (unsigned long i = 0; i < nbNodes; i++)
+        if (nodesToDelete[i])
+           _graph.deleteNode(i);
+
+
     return nbTipsRemoved;
 }
 
@@ -147,7 +163,9 @@ unsigned long GraphSimplification::removeBubbles()
     unsigned int max_breadth = 20; 
 
     /** We get an iterator over all nodes . */
-    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), progressFormat1);
+    char buffer[128];
+    sprintf(buffer, progressFormat1, ++_nbBubbleRemovalPasses);
+    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
 
     // parallel stuff: create a dispatcher ; support atomic operations
     Dispatcher dispatcher (_nbCores);
@@ -159,7 +177,14 @@ unsigned long GraphSimplification::removeBubbles()
     //for (itNode.first(); !itNode.isDone(); itNode.next())
     //{
       //  Node node = itNode.item();
+
     // parallel stuff
+    vector<bool> nodesToDelete; // don't delete while parallel traversal, do it afterwards
+    unsigned long nbNodes = itNode.size();
+    nodesToDelete.resize(nbNodes); // number of graph nodes
+    for (unsigned long i = 0; i < nbNodes; i++)
+        nodesToDelete[i] = false;
+
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
@@ -167,10 +192,7 @@ unsigned long GraphSimplification::removeBubbles()
             return; // parallel
             // continue; // sequential
 
-        {
-        // FIXME: throws bad allow when too many threads
-        // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
-        LocalSynchronizer sync (synchro); 
+        if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel
 
         // we're at the start of a branching
         Node startingNode = node;
@@ -300,7 +322,6 @@ unsigned long GraphSimplification::removeBubbles()
         {            
             Node node = _graph.buildNode((char *)(p_str.c_str()), i); 
             int nb_erased = all_involved_extensions.erase(node.kmer);
-            // TODO i don't recall if there is a potential problem/fix here or nothing to see
             //if (nb_erased != 1)
             //    cout << "error: wanted to keep kmer" << _graph.toString (node) << "but wasn't there" << endl;
 
@@ -309,18 +330,24 @@ unsigned long GraphSimplification::removeBubbles()
         all_involved_extensions.erase(startNode.kmer);
         all_involved_extensions.erase(endNode.kmer);
 
+        for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
         {
-            // should put atomic here
+            //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
+            // _graph.deleteNode(*itVecNodes); // sequential
+            unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
+            nodesToDelete[index] = true; // parallel version
+        }
+        nbBubblesRemoved++;
 
-            for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
-            {
-                //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
-                _graph.deleteNode(*itVecNodes);
-            }
-            nbBubblesRemoved++;
-        }
-        }
         // } // sequential
     }); // parallel
+
+
+    // now delete all nodes, in sequential
+    for (unsigned long i = 0; i < nbNodes; i++)
+        if (nodesToDelete[i])
+           _graph.deleteNode(i);
+
+
     return nbBubblesRemoved;
 }
