@@ -31,14 +31,15 @@ class GraphSimplification : public SmartPointer
 {
 public:
 
-    GraphSimplification (const Graph& graph)
-        : _graph(graph){}
+    GraphSimplification (const Graph& graph, int nbCores)
+        : _graph(graph), _nbCores(nbCores) {}
 
     unsigned long removeTips();
     unsigned long removeBubbles();
 
 protected:
     const Graph&  _graph;
+    int _nbCores;
 };
 
 /********************************************************************************/

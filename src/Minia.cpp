@@ -270,7 +270,8 @@ void Minia::assemble (const Graph& graph)
         // if we want unitigs, then don't simplify the graph; else do it
         if (simplifyGraph)
         {
-            GraphSimplification graphSimplification(graph);
+            int nbCores = getInput()->getInt(STR_NB_CORES);
+            GraphSimplification graphSimplification(graph, nbCores);
 
             unsigned long nbTipsRemoved_1 = graphSimplification.removeTips();
             unsigned long nbTipsRemoved_2 = graphSimplification.removeTips();

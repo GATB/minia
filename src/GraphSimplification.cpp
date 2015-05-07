@@ -40,14 +40,23 @@ unsigned long GraphSimplification::removeTips()
     /** We get an iterator over all nodes . */
     ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), progressFormat0);
 
+    // parallel stuff: create a dispatcher ; support atomic operations
+    Dispatcher dispatcher (_nbCores);
+    ISynchronizer* synchro = System::thread().newSynchronizer();
+
     /** We loop over all nodes. */
-    for (itNode.first(); !itNode.isDone(); itNode.next())
+    //for (itNode.first(); !itNode.isDone(); itNode.next()) // sequential
+    //{
+        // Node node = itNode.item();
+
+    // parallel stuff
+    dispatcher.iterate (itNode, [&] (Node& node)
     {
-        Node node = itNode.item();
 
         if (_graph.indegree(node) + _graph.outdegree(node) == 1)
         {
-            if (_graph.isNodeDeleted(node)) { continue; }
+            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential
+
             //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
             /** We follow the simple path to get its length */
@@ -107,6 +116,10 @@ unsigned long GraphSimplification::removeTips()
                 if (isTip)
                 {
                     // delete it
+                    //
+
+                    // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
+                    LocalSynchronizer sync (synchro); 
 
                     //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
                     for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
@@ -118,7 +131,8 @@ unsigned long GraphSimplification::removeTips()
                 }
             }
         }
-    }
+    // } // sequential
+    }); // parallel
     return nbTipsRemoved;
 }
 
@@ -135,15 +149,23 @@ unsigned long GraphSimplification::removeBubbles()
     /** We get an iterator over all nodes . */
     ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), progressFormat1);
 
+    // parallel stuff: create a dispatcher ; support atomic operations
+    Dispatcher dispatcher (_nbCores);
+    ISynchronizer* synchro = System::thread().newSynchronizer();
+
     Terminator& dummyTerminator = NullTerminator::singleton(); // Frontline wants one
 
     /** We loop over all nodes. */
-    for (itNode.first(); !itNode.isDone(); itNode.next())
+    //for (itNode.first(); !itNode.isDone(); itNode.next())
+    //{
+      //  Node node = itNode.item();
+    // parallel stuff
+    dispatcher.iterate (itNode, [&] (Node& node)
     {
-        Node node = itNode.item();
 
         if (_graph.outdegree(node) <= 1 && _graph.indegree(node) <= 1)
-            continue;
+            return; // parallel
+            // continue; // sequential
 
         // we're at the start of a branching
         Node startingNode = node;
@@ -209,7 +231,8 @@ unsigned long GraphSimplification::removeBubbles()
         }
 
         if (!cleanBubble)
-            continue;
+            return; // parallel
+            // continue; // sequential
        
         Node startNode = node; 
         Node endNode = frontline.front().node;
@@ -230,19 +253,17 @@ unsigned long GraphSimplification::removeBubbles()
         set<Path> consensuses = traversal->all_consensuses_between (dir, startNode, endNode, traversal_depth+1, success);
 
         // if consensus phase failed, stop
-        if (!success)  {
-            continue;
-        }
+        if (!success)
+            return; // parallel
+            // continue; // sequential
 
         Path consensus;
         consensus.resize (0);
         // validate paths, based on identity
         bool validated = traversal->validate_consensuses (consensuses, consensus);
         if (!validated)   
-        {  
-            //stats.couldnt_validate_consensuses++;
-            continue;
-        }
+            return; // parallel
+            // continue; // sequential
 
         // ready to pop the bubble and keep only the validated consensus
         DEBUG(cout << endl << "READY TO POP!\n");
@@ -283,13 +304,17 @@ unsigned long GraphSimplification::removeBubbles()
         all_involved_extensions.erase(startNode.kmer);
         all_involved_extensions.erase(endNode.kmer);
 
-        for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
         {
-            //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
-            _graph.deleteNode(*itVecNodes);
+            // parallel stuff: make that operation atomic (not sure if really really needed, but let's be conservative)
+            LocalSynchronizer sync (synchro); 
+            for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
+            {
+                //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
+                _graph.deleteNode(*itVecNodes);
+            }
+            nbBubblesRemoved++;
         }
-
-        nbBubblesRemoved++;
-    }
+    // } // sequential
+    }); // parallel
     return nbBubblesRemoved;
 }
