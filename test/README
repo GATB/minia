@@ -1,0 +1,6 @@
+Those .sh scripts don't really say OK/NOT OK, you have to inspect the result yourself, but it's quite intuitive:
+
+10k_test should assemble into 1 sequence
+X remains an X
+bubble becomes popped
+tip becomes clipped

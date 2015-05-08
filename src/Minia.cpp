@@ -27,6 +27,7 @@
 
 #include <fstream>
 #include <string>
+#include <iomanip> // for setprecision
 using namespace std;
 
 /********************************************************************************/
@@ -431,8 +432,7 @@ void Minia::buildSequence (
 
     /** We set the sequence comment. */
     stringstream ss1;
-    cout.precision(2);
     // spades-like header (compatible with bandage) 
-    ss1 << "NODE_"<< nbContigs << "_length_" << length << "_cov_" << coverage << "_ID_" << nbContigs;
+    ss1 << "NODE_"<< nbContigs + 1 << "_length_" << length << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
     seq._comment = ss1.str();
 }
