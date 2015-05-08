@@ -387,23 +387,52 @@ void Minia::buildSequence (
     size_t lenRight = consensusRight.size();
     size_t lenLeft  = consensusLeft.size ();
 
-    /** We set the sequence comment. */
-    stringstream ss1;
-    ss1 << nbContigs << "__len__" << length;
-    seq._comment = ss1.str();
-
     /** We set the data length. */
     seq.getData().resize (length);
 
+    string sequence = "";
     size_t idx=0;
 
     /** We dump the left part. */
-    for (size_t i=0; i<lenLeft;  i++)  {  data[idx++] = ascii (reverse(consensusLeft [lenLeft-i-1])); }
+    for (size_t i=0; i<lenLeft;  i++)  {  
+        unsigned char c = ascii (reverse(consensusLeft [lenLeft-i-1]));
+        data[idx++] = c; 
+        sequence += c;
+    }
 
     /** We dump the starting node. */
     string node = graph.toString (startingNode);
-    for (size_t i=0; i<node.size(); i++)  { data[idx++] = node[i]; }
+    for (size_t i=0; i<node.size(); i++)  { 
+        data[idx++] = node[i]; 
+        sequence += node[i];
+    }
 
     /** We dump the right part. */
-    for (size_t i=0; i<lenRight; i++)  {  data[idx++] = ascii (consensusRight[i]); }
+    for (size_t i=0; i<lenRight; i++)  {  
+        unsigned char c = ascii (consensusRight[i]);
+        data[idx++] = c;
+        sequence += c;
+    }
+
+    // get coverage
+    double coverage = 0;
+    for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
+    {
+        // taken from Traversal.cpp (might be good to factorize into something like getCoverage(string))
+        Node node = graph.buildNode((char *)(sequence.c_str()), i); 
+        /* I know that buildNode was supposed to be used for test purpose only,
+         * but couldn't find anything else to transform my substring into a kmer */
+
+        unsigned char abundance = graph.queryAbundance(node.kmer);
+        coverage += (unsigned int)abundance;
+
+    }
+    coverage /= length - graph.getKmerSize() + 1;
+
+    /** We set the sequence comment. */
+    stringstream ss1;
+    cout.precision(2);
+    // spades-like header (compatible with bandage) 
+    ss1 << "NODE_"<< nbContigs << "_length_" << length << "_cov_" << coverage << "_ID_" << nbContigs;
+    seq._comment = ss1.str();
 }

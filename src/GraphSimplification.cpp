@@ -297,7 +297,7 @@ unsigned long GraphSimplification::removeBubbles()
             return; // parallel
         // continue; // sequential
 
-        Node startNode = node; 
+        Node startNode = startingNode; 
         Node endNode = frontline.front().node;
         int traversal_depth = frontline.depth();
 
