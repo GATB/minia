@@ -193,6 +193,7 @@ unsigned long GraphSimplification::removeBubbles()
 
     Terminator& dummyTerminator = NullTerminator::singleton(); // Frontline wants one
 
+    // sequential
     /** We loop over all nodes. */
     //for (itNode.first(); !itNode.isDone(); itNode.next())
     //{
@@ -219,12 +220,23 @@ unsigned long GraphSimplification::removeBubbles()
         Node previousNode = node; // dummy, no consequence  
         set<Node> all_involved_extensions;
 
+        // do not pop the same bubble twice (and possibly both paths..)
+        // so this is a compromise if check-late-to-avoid-synchro-overhead
+        {
+            LocalSynchronizer local(synchro);
+            if (bubblesAlreadyPopped.find(startingNode) == bubblesAlreadyPopped.end())
+                bubblesAlreadyPopped.insert(startingNode);
+            else
+                return;
+        }
+
         // pick a direction. for those complex nodes that might be forming two bubbles, let's just pop one of the two bubbles only, the other will follow on the other end
         Direction dir;
         if (_graph.outdegree(node) > 1)
-        dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
+            dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
         else
-        dir = DIR_INCOMING;
+            return;  // FIXME until dir_incoming is buggy, let's not use pop bubbles in that direction.
+            //dir = DIR_INCOMING;
 
         FrontlineReachable frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
         // one would think using FrontlineBranching will pop more bubbles less conservatively. actually wasn't the case in my early tests. need to test more.
@@ -265,9 +277,7 @@ unsigned long GraphSimplification::removeBubbles()
                 break;
             }
 
-            if (frontline.size() == 1) // in legacyTraversal: longer contigs but for some reason, higher mismatch rate; TODO: verify it in the context of graph simplification
-            {break;}
-            //if (frontline.size() == 1 &&   (!terminator.isEnabled() || !terminator.is_branching(frontline.front().node)) )  {   break;  }
+            if (frontline.size() == 1) {break;}
         }
         while (1);
 
@@ -351,16 +361,11 @@ unsigned long GraphSimplification::removeBubbles()
         all_involved_extensions.erase(endNode.kmer);
 
         // do not pop the same bubble twice (and possibly both paths..)
-        // that's not the most elegant fix ever, because we could have checked earlier, but need to care about thread safety, 
-        // so this is a compromise if check-late-to-avoid-synchro-overhead
+        // same code as above but check end node too, important! 
         {
             LocalSynchronizer local(synchro);
-            if (bubblesAlreadyPopped.find(startNode) == bubblesAlreadyPopped.end() && 
-                    bubblesAlreadyPopped.find(endNode) == bubblesAlreadyPopped.end())
-            {
-                bubblesAlreadyPopped.insert(startNode);
+            if (bubblesAlreadyPopped.find(endNode) == bubblesAlreadyPopped.end())
                 bubblesAlreadyPopped.insert(endNode);
-            }
             else
                 return;
         }
