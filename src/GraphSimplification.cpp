@@ -235,8 +235,14 @@ unsigned long GraphSimplification::removeBubbles()
         if (_graph.outdegree(node) > 1)
             dir = DIR_OUTCOMING; // is the word "outcoming" really used in that context?
         else
-            return;  // FIXME until dir_incoming is buggy, let's not use pop bubbles in that direction.
+        {
             //dir = DIR_INCOMING;
+            // until traversal with dir_incoming is buggy in gatbcore, let's not use pop bubbles using DIR_INCOMING
+            dir = DIR_OUTCOMING;
+            startingNode = _graph.reverse(startingNode); 
+            previousNode = startingNode;
+            // that's a good fix, but TODO investigate why some bubbles can only be popped in one direction and not the other. oh it's probably because of longer tips..
+        }
 
         FrontlineReachable frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
         // one would think using FrontlineBranching will pop more bubbles less conservatively. actually wasn't the case in my early tests. need to test more.
