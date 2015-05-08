@@ -304,7 +304,7 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
+           while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
         }
 
         /** We loop over all nodes. */
@@ -315,7 +315,7 @@ void Minia::assemble (const Graph& graph)
             // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
             if (terminator->is_marked (node))  {  continue;   }
             if (graph.isNodeDeleted(node)) { continue; }
-            
+
             DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
 
             assembleFrom(node, traversal, graph, outputBank);

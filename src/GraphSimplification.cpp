@@ -55,25 +55,26 @@ unsigned long GraphSimplification::removeTips()
     // parallel stuff
     vector<bool> nodesToDelete; // don't delete while parallel traversal, do it afterwards
     unsigned long nbNodes = itNode.size();
-    nodesToDelete.resize(nbNodes); // number of graph nodes
+    nodesToDelete.resize(nbNodes); // number of graph nodes // (!) this will alloc 1 bit per kmer.
     for (unsigned long i = 0; i < nbNodes; i++)
         nodesToDelete[i] = false;
 
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
-        if (_graph.indegree(node) + _graph.outdegree(node) == 1)
+        if (_graph.indegree(node) == 0 || _graph.outdegree(node) == 0)
         {
             if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
             if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
 
-            //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
+            DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
             /** We follow the simple path to get its length */
             Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has a single neighbor
             Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction);
+            //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << endl);
             bool isShort = true;
-            int pathLen = 2; // node and neighbors[0].to
+            int pathLen = 1;
             vector<Node> nodes;
             nodes.push_back(node);
             for (itNodes.first(); !itNodes.isDone(); itNodes.next())
@@ -86,11 +87,24 @@ unsigned long GraphSimplification::removeTips()
                 }
             }
 
-            bool isTopologicalTip = isShort && (_graph.neighbors<Edge>(nodes.back()).size() > 1); // is not a deadend on the other side
+            // at this point, the last node in "nodes" is the last node of the tip.
+            // check if it's connected to something. 
+            // condition: degree > 1, because connected to the tip and to that "something"
+            bool isConnected = (_graph.neighbors<Edge>(nodes.back()).size() > 1);
+            if (pathLen == 1)
+            {
+                // special case: only a single tip node, check if it's not isolated
+                isConnected |=  (_graph.indegree(node) != 0 || _graph.outdegree(node) != 0); 
+            }
+
+            bool isTopologicalTip = isShort && isConnected; // is not a deadend on the other side
+
+            //DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree outdegree: " <<_graph.indegree(node) << " " << _graph.outdegree(node) << "istopotip: " << isTopologicalTip << endl);
 
             if (isTopologicalTip)
             {
                 
+#if 0
                 // coverage criterion
                 unsigned long mean_abundance = 0;
                 for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
@@ -99,7 +113,6 @@ unsigned long GraphSimplification::removeTips()
                     mean_abundance += abundance;
                 }
 
-#if 0
                 // explore the other two or more simple paths connected to that deadend to get a abundance estimate
                 Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(nodes.back());
                 for (size_t i = 0; i < neighbors.size(); i++)
@@ -146,10 +159,14 @@ unsigned long GraphSimplification::removeTips()
     // } // sequential
     }); // parallel
 
-    // now delete all nodes, in sequential
+    // now delete all nodes, in sequential (shouldn't take long)
     for (unsigned long i = 0; i < nbNodes; i++)
+    {
         if (nodesToDelete[i])
+        {
            _graph.deleteNode(i);
+        }
+    }
 
 
     return nbTipsRemoved;
