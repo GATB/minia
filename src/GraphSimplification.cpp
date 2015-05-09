@@ -164,7 +164,6 @@ unsigned long GraphSimplification::removeTips()
     {
         if (nodesToDelete[i])
         {
-            cout << "deleting node" << i << endl;
            _graph.deleteNode(i);
         }
     }
