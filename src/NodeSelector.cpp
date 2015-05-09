@@ -154,7 +154,7 @@ bool NodeSelectorImproved::select (const Node& source, Node& result)
 bool NodeSelectorBest::select (const Node& source, Node& result)
 {
     Direction dir = DIR_OUTCOMING;
-    int sum_depths = 0;
+    unsigned int sum_depths = 0;
 
     /** First selection. */
     if (_firstSelector.select (source, result) == false)  { return false; }

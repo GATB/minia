@@ -164,6 +164,7 @@ unsigned long GraphSimplification::removeTips()
     {
         if (nodesToDelete[i])
         {
+            cout << "deleting node" << i << endl;
            _graph.deleteNode(i);
         }
     }
@@ -206,7 +207,7 @@ unsigned long GraphSimplification::removeBubbles()
     for (unsigned long i = 0; i < nbNodes; i++)
         nodesToDelete[i] = false;
 
-    set<Node> bubblesAlreadyPopped; // endnodes of bubbles already popped
+    set<Node::Value> bubblesAlreadyPopped; // endnodes of bubbles already popped (using kmers instead of Nodes because of possibly reversing them)
 
     dispatcher.iterate (itNode, [&] (Node& node)
     {
@@ -224,8 +225,8 @@ unsigned long GraphSimplification::removeBubbles()
         // so this is a compromise if check-late-to-avoid-synchro-overhead
         {
             LocalSynchronizer local(synchro);
-            if (bubblesAlreadyPopped.find(startingNode) == bubblesAlreadyPopped.end())
-                bubblesAlreadyPopped.insert(startingNode);
+            if (bubblesAlreadyPopped.find(startingNode.kmer) == bubblesAlreadyPopped.end())
+                bubblesAlreadyPopped.insert(startingNode.kmer);
             else
                 return;
         }
@@ -370,8 +371,8 @@ unsigned long GraphSimplification::removeBubbles()
         // same code as above but check end node too, important! 
         {
             LocalSynchronizer local(synchro);
-            if (bubblesAlreadyPopped.find(endNode) == bubblesAlreadyPopped.end())
-                bubblesAlreadyPopped.insert(endNode);
+            if (bubblesAlreadyPopped.find(endNode.kmer) == bubblesAlreadyPopped.end())
+                bubblesAlreadyPopped.insert(endNode.kmer);
             else
                 return;
         }
