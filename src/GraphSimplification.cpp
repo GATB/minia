@@ -32,9 +32,29 @@ using namespace std;
 static const char* progressFormat0 = "removing tips,    pass %2d ";
 static const char* progressFormat1 = "removing bubbles, pass %2d ";
 
+/* okay let's analyze SPAdes 3.5 tip clipping conditions, just for fun: (following graph_simplifications.hpp and simplifications.info)
+ *
+ * tc_lb is a coefficient, setting tip length to be max(read length, g*tc_lb) (see simplification_settings.hpp);
+ *
+ * cb is a plain coverage upper bound (see basic_edge_conditions.hpp)
+ * when it's auto, it's equal to ec_bound.
+ * ec_bound is max(average edge coverage, graph threshold) (set in genomic_info_filler.cpp)
+ * graph threshold is quite advanced! (omni_tools.hpp)
+ *
+ * rctc is a "relative coverage tip condition" and the value given next to it is: max_relative_coverage
+ * rctc examines whether the coverage of the tip is <= max_relative_coverage * (max_{over all neighbors}(coverage of neighbor) + 1)
+ *
+ * actual tip clipping code for "tc", i.e. implementations of the conditions, is in tip_clipper
+ * (omni/graph_processing_algorithm.hpp:EdgeRemovingAlgorithm() is just generically parsing conditions)
+ *
+ * in one condition, tc_lb = 3.5, cb is 1000000 (minia's coverages values don't go that far.. yet..), rctc 2
+ * and in another, tc_lb is 10 and cb is auto
+ */
 unsigned long GraphSimplification::removeTips()
 {
-    int maxTipLength = _graph.getKmerSize() + 2; // in line with legacyTraversal
+    unsigned int k = _graph.getKmerSize();
+    //int maxTipLength = _graph.getKmerSize() + 2; // in line with legacyTraversal
+    unsigned int maxTipLength = k * (3.5 - 1); // SPAdes mode (more aggressive, might cause misassemblies for sure)
 
     unsigned long nbTipsRemoved = 0;
 
@@ -74,13 +94,13 @@ unsigned long GraphSimplification::removeTips()
             Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction);
             //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << endl);
             bool isShort = true;
-            int pathLen = 1;
+            unsigned int pathLen = 1;
             vector<Node> nodes;
             nodes.push_back(node);
             for (itNodes.first(); !itNodes.isDone(); itNodes.next())
             {
                 nodes.push_back(*itNodes);
-                if (pathLen++ >= maxTipLength)
+                if (k + pathLen++ >= maxTipLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
                 {
                     isShort = false;
                     break;       
@@ -323,6 +343,11 @@ unsigned long GraphSimplification::removeBubbles()
         Path consensus;
         consensus.resize (0);
         // validate paths, based on identity
+        /* small digression. it's interesting to see that SPAdes 3.5 does not do identity-based bubble popping, at all! 
+         * it pops bubble based on something like the ratio between most covered and less covered path is (whether it is above 1.1).
+         * not sure if it's betetr. anyhow it'd rather do less strict identity bubble popping. legacy minia has 90%, i'll lower to 85%. 
+         * I still see 80% bubbles in coli (SRR001665_1.fa) with k=22 for instance.
+         */
         bool validated = traversal->validate_consensuses (consensuses, consensus);
         if (!validated)   
             return; // parallel
@@ -339,7 +364,7 @@ unsigned long GraphSimplification::removeBubbles()
 
         if (dir == DIR_INCOMING)
         {
-            // TODO: port that change into Traversal
+            // TODO: remove this code once gatb-core is fixed w.r.t DIR_INCOMING bug
             Node revstart = endNode;
             p_str = _graph.toString(revstart);
             for (size_t i = 0; i < p.size(); i++)
