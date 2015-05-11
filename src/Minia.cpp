@@ -80,6 +80,9 @@ Minia::Minia () : Tool ("minia")
     // we hide the STR_URI_INPUT option, otherwise we would have it twice
     if (IOptionsParser* p = graphParser->getParser(STR_URI_INPUT))  {  p->setVisible(false); }
 
+    // we set the default value for the abundance min
+    if (Option* p = dynamic_cast<Option*> (graphParser->getParser(STR_KMER_ABUNDANCE_MIN)))  {  p->setDefaultValue ("2"); }
+
     getParser()->push_back(graphParser, 1);
 }
 

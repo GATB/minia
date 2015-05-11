@@ -54,7 +54,7 @@ unsigned long GraphSimplification::removeTips()
 {
     unsigned int k = _graph.getKmerSize();
     //int maxTipLength = _graph.getKmerSize() + 2; // in line with legacyTraversal
-    unsigned int maxTipLength = k * (3.5 - 1); // SPAdes mode (more aggressive, might cause misassemblies for sure)
+    unsigned int maxTipLength = (unsigned int)((float)k * (3.5 - 1.0)); // SPAdes mode (more aggressive, might cause misassemblies for sure)
 
     unsigned long nbTipsRemoved = 0;
 
