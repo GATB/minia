@@ -34,14 +34,19 @@ static const char* progressFormat1 = "removing bubbles, pass %2d ";
 
 /* okay let's analyze SPAdes 3.5 tip clipping conditions, just for fun: (following graph_simplifications.hpp and simplifications.info)
  *
- * tc_lb is a coefficient, setting tip length to be max(read length, g*tc_lb) (see simplification_settings.hpp);
+ * * tc_lb is a coefficient, setting tip length to be max(read length, g*tc_lb) (see simplification_settings.hpp);
  *
- * cb is a plain coverage upper bound (see basic_edge_conditions.hpp)
- * when it's auto, it's equal to ec_bound.
- * ec_bound is max(average edge coverage, graph threshold) (set in genomic_info_filler.cpp)
- * graph threshold is quite advanced! (omni_tools.hpp)
+ * * cb is a plain coverage upper bound (see basic_edge_conditions.hpp)
+ * when it's auto, it's equal to ec_bound. (source: set_detected_coverage_bound(gp.ginfo.ec_bound() in graph_simplification.hpp)
  *
- * rctc is a "relative coverage tip condition" and the value given next to it is: max_relative_coverage
+ * * * ec_bound is given by the error threshold found by the coverage model in kmer_coverage_model.cpp (see: genomic_info_filler.cpp)
+ * it's the largest abundance value such that the probability of an erroneous kmer is less than 0.05. And, if it's smaller than the valley, it's the valley.
+ * EC bound looks off in metagenomic assemblies (a value over 50.. seems high).
+ *
+ * * * in single cell mode, it's max(average edge coverage, graph theshold), and graph threshold is quite advanced! (omni_tools.hpp)
+ * but already, in multicell mode, spades does a good job at tip clipping, so let's look at that first.
+ *
+ * * rctc is a "relative coverage tip condition" and the value given next to it is: max_relative_coverage
  * rctc examines whether the coverage of the tip is <= max_relative_coverage * (max_{over all neighbors}(coverage of neighbor) + 1)
  *
  * actual tip clipping code for "tc", i.e. implementations of the conditions, is in tip_clipper
@@ -54,7 +59,8 @@ unsigned long GraphSimplification::removeTips()
 {
     unsigned int k = _graph.getKmerSize();
     //int maxTipLength = _graph.getKmerSize() + 2; // in line with legacyTraversal
-    unsigned int maxTipLength = (unsigned int)((float)k * (3.5 - 1.0)); // SPAdes mode (more aggressive, might cause misassemblies for sure)
+    //unsigned int maxTipLength = (unsigned int)((float)k * (3.5 - 1.0)); // SPAdes mode (more aggressive, might cause misassemblies for sure)
+    unsigned int maxTipLength = (unsigned int)(100 * 10); // ultra-aggresive to over-approximate spades results (read_length/2 * 10)
 
     unsigned long nbTipsRemoved = 0;
 
@@ -261,7 +267,8 @@ unsigned long GraphSimplification::removeBubbles()
             dir = DIR_OUTCOMING;
             startingNode = _graph.reverse(startingNode); 
             previousNode = startingNode;
-            // that's a good fix, but TODO investigate why some bubbles can only be popped in one direction and not the other. oh it's probably because of longer tips..
+
+            // that's a good fix, but maybe someday investigate why some bubbles are only popped in one direction and not the other. it's probably because of longer tips..
         }
 
         FrontlineReachable frontline (dir, _graph, dummyTerminator, startingNode, previousNode, &all_involved_extensions);
