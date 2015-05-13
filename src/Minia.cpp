@@ -44,7 +44,7 @@ static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 static const char* STR_FASTA_LINE_SIZE = "-fasta-line";
 static const char* STR_KEEP_ISOLATED   = "-keep-isolated";
 
-static const char* progressFormat0 = "Assembly                               ";
+static const char* progressFormat0 = "Minia : assembly";
 
 /*********************************************************************
 ** METHOD  :

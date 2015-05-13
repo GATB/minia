@@ -29,8 +29,8 @@
 
 using namespace std;
 
-static const char* progressFormat0 = "removing tips,    pass %2d ";
-static const char* progressFormat1 = "removing bubbles, pass %2d ";
+static const char* progressFormat0 = "Minia : removing tips,    pass %2d";
+static const char* progressFormat1 = "Minia : removing bubbles, pass %2d";
 
 /* okay let's analyze SPAdes 3.5 tip clipping conditions, just for fun: (following graph_simplifications.hpp and simplifications.info)
  *
