@@ -68,7 +68,7 @@ Minia::Minia () : Tool ("minia")
 	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
 	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
-	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= 150 bp) isolated output sequences", false));
+	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= max(2k, 150 bp)) isolated output sequences", false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
 
@@ -135,9 +135,10 @@ void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& g
     bool isolatedRight = traversal->deadend;
 
     unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
+    unsigned int isolatedCutoff = std::max(2*(unsigned int)graph.getKmerSize(), (unsigned int)150);
 
-    /** We keep this contig if its not [shorter than 150 bp and isolated (SPAdes criterion)], or if -keep-isolated passed */
-    if (lenTotal > 150 || (lenTotal <= 150 && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
+    /** We keep this contig if its not [shorter than isolatedCutoff and isolated (SPAdes-like criterion)], or if -keep-isolated passed */
+    if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
     {
         /** We create the contig sequence. */
         buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);

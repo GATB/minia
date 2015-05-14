@@ -5,7 +5,7 @@ t=2
 traversal=contig
 
 set -x
-../build/minia -in "$file".fa -kmer-size "$k" -abundance-min $t -traversal $traversal
+../build/minia -in "$file".fa -kmer-size "$k" -abundance-min $t -traversal $traversal -nb-cores 1
 set +x
 
 echo "legacy: ~/gatb-pipeline/minia/minia-legacy -in "$file".fa -kmer-size "$k" -no-length-cutoff -abundance-min $t -traversal $traversal"

@@ -37,6 +37,9 @@ public:
     unsigned long removeTips();
     unsigned long removeBubbles();
 
+    double getSimplePathCoverage(Node node, Direction dir, unsigned int* pathLen = NULL, unsigned int maxLength = 0);
+    double getMeanAbundanceOfNeighbors(Node branchingNode, Node nodeToExclude);
+
     int _nbTipRemovalPasses;
     int _nbBubbleRemovalPasses;
 

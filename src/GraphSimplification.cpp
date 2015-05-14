@@ -32,6 +32,51 @@ using namespace std;
 static const char* progressFormat0 = "Minia : removing tips,    pass %2d";
 static const char* progressFormat1 = "Minia : removing bubbles, pass %2d";
 
+double GraphSimplification::getSimplePathCoverage(Node node, Direction dir, unsigned int *pathLenOut, unsigned int maxLength)
+{
+    Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (node, dir);
+    unsigned long mean_abundance = _graph.queryAbundance(node.kmer);
+    unsigned int pathLen = 1;
+    for (itNodes.first(); !itNodes.isDone(); itNodes.next())
+    {
+        Node node = *itNodes;
+        unsigned int abundance = _graph.queryAbundance(node.kmer);
+        mean_abundance += abundance;
+        pathLen++;
+        if (maxLength > 0 && pathLen >= maxLength)
+            break;
+    }
+    *pathLenOut = pathLen;
+    return (double)mean_abundance / (double)pathLen;
+}
+
+// gets the mean abundance of neighboring paths around a branching node (excluding the path that starts with nodeToExclude, e.g. the tip itself)
+double GraphSimplification::getMeanAbundanceOfNeighbors(Node branchingNode, Node nodeToExclude)
+{
+    Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(branchingNode);
+    unsigned int nbNeighbors = 0;
+    double meanNeighborsCoverage = 0;
+    DEBUG(cout << endl << "called getMeanAbudanceOfNeighbors for node " << _graph.toString(branchingNode) << " of degrees " << _graph.indegree(branchingNode) <<"/"<< _graph.outdegree(branchingNode)<< " excluding node  " <<  _graph.toString (nodeToExclude) << endl);
+    for (size_t i = 0; i < neighbors.size(); i++)
+    {
+        Node neighbor = neighbors[i].to;
+        if (neighbor == nodeToExclude) // (in gatb-core, Node == Node means Node.kmer == Node.kmer)
+        {
+            DEBUG(cout << endl << "good, seen the node to exclude" << endl);
+            continue; 
+        }
+
+        unsigned int pathLen;
+        unsigned int simplePathCoverage = getSimplePathCoverage(neighbor, neighbors[i].direction, &pathLen, 100);
+        meanNeighborsCoverage += simplePathCoverage;
+        nbNeighbors++;
+
+        DEBUG(cout << endl << "tip neighbor " << nbNeighbors << " : " <<  _graph.toString (neighbor) << " direction: " << neighbors[i].direction << " meancoverage: " <<simplePathCoverage << " over " << pathLen << " kmers" << endl);
+    }
+    meanNeighborsCoverage /= nbNeighbors;
+    return meanNeighborsCoverage;
+}
+
 /* okay let's analyze SPAdes 3.5 tip clipping conditions, just for fun: (following graph_simplifications.hpp and simplifications.info)
  *
  * * tc_lb is a coefficient, setting tip length to be max(read length, g*tc_lb) (see simplification_settings.hpp);
@@ -59,12 +104,14 @@ unsigned long GraphSimplification::removeTips()
 {
     unsigned int k = _graph.getKmerSize();
     //int maxTipLength = _graph.getKmerSize() + 2; // in line with legacyTraversal
-    //unsigned int maxTipLength = (unsigned int)((float)k * (3.5 - 1.0)); // SPAdes mode (more aggressive, might cause misassemblies for sure)
-    unsigned int maxTipLength = (unsigned int)(100 * 10); // ultra-aggresive to over-approximate spades results (read_length/2 * 10)
+    
+    unsigned int maxTipLengthTopological = (unsigned int)((float)k * (3.5 - 1.0)); // aggressive with SPAdes length threshold, but no coverage criterion
+    unsigned int maxTipLengthRCTC = (unsigned int)(k * 10); // experimental, SPAdes-like
+    double RCTCcutoff = 2; // SPAdes-like
 
     unsigned long nbTipsRemoved = 0;
 
-    /** We get an iterator over all nodes . */
+    /** We get an iterator over all nodes */
     char buffer[128];
     sprintf(buffer, progressFormat0, ++_nbTipRemovalPasses);
     ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
@@ -72,11 +119,6 @@ unsigned long GraphSimplification::removeTips()
     // parallel stuff: create a dispatcher ; support atomic operations
     Dispatcher dispatcher (_nbCores);
     ISynchronizer* synchro = System::thread().newSynchronizer();
-
-    /** We loop over all nodes. */
-    //for (itNode.first(); !itNode.isDone(); itNode.next()) // sequential
-    //{
-        // Node node = itNode.item();
 
     // parallel stuff
     vector<bool> nodesToDelete; // don't delete while parallel traversal, do it afterwards
@@ -88,7 +130,8 @@ unsigned long GraphSimplification::removeTips()
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
-        if (_graph.indegree(node) == 0 || _graph.outdegree(node) == 0)
+        unsigned inDegree = _graph.indegree(node), outDegree =  _graph.outdegree(node);
+        if ((inDegree == 0 || outDegree == 0) && (inDegree != 0 || outDegree != 0))
         {
             if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
             if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
@@ -98,19 +141,26 @@ unsigned long GraphSimplification::removeTips()
             /** We follow the simple path to get its length */
             Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has a single neighbor
             Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction);
-            //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << endl);
-            bool isShort = true;
+            DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << " direction: " << neighbors[0].direction << endl);
+
+            bool isShortTopological = true;
+            bool isShortRCTC = true;
             unsigned int pathLen = 1;
             vector<Node> nodes;
             nodes.push_back(node);
             for (itNodes.first(); !itNodes.isDone(); itNodes.next())
             {
                 nodes.push_back(*itNodes);
-                if (k + pathLen++ >= maxTipLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
+                if (k + pathLen >= maxTipLengthTopological) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
+                    isShortTopological = false;
+
+                if (k + pathLen >= maxTipLengthRCTC) 
                 {
-                    isShort = false;
-                    break;       
+                    isShortRCTC= false;
+                    break;
                 }
+
+                pathLen++;
             }
 
             // at this point, the last node in "nodes" is the last node of the tip.
@@ -123,66 +173,78 @@ unsigned long GraphSimplification::removeTips()
                 isConnected |=  (_graph.indegree(node) != 0 || _graph.outdegree(node) != 0); 
             }
 
-            bool isTopologicalTip = isShort && isConnected; // is not a deadend on the other side
+            bool isTopologicalTip = isShortTopological && isConnected; 
+            bool isMaybeRCTCTip = isShortRCTC && isConnected;
 
-            //DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree outdegree: " <<_graph.indegree(node) << " " << _graph.outdegree(node) << "istopotip: " << isTopologicalTip << endl);
+            DEBUG(cout << endl << "pathlen: " << pathLen << " last node " << _graph.toString(nodes.back()) << " neighbors in/out: " <<_graph.indegree(nodes.back()) << " " << _graph.outdegree(nodes.back()) << " istopotip: " << isTopologicalTip << endl);
 
-            if (isTopologicalTip)
+            bool isRCTCTip = false;
+            if (!isTopologicalTip && isMaybeRCTCTip)
             {
                 
-#if 0
-                // coverage criterion
+                // coverage of the putative tip
                 unsigned long mean_abundance = 0;
                 for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
                 {
-                    unsigned int abundance = _graph.queryAbundance(node.kmer);
+                    unsigned int abundance = _graph.queryAbundance((*itVecNodes).kmer);
                     mean_abundance += abundance;
                 }
+                double meanTipAbundance = (double)mean_abundance / (double)(nodes.size());
+                double stdevTipAbundance = 0;
 
-                // explore the other two or more simple paths connected to that deadend to get a abundance estimate
-                Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(nodes.back());
-                for (size_t i = 0; i < neighbors.size(); i++)
+                // for debug only, can be disabled to save time
+                for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
                 {
-                    Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, neighbors[i].direction);
-                    int pathLen = 0;
-                    vector<Node> simplepath_nodes;
-                    for (itNodes.first(); !itNodes.isDone(); itNodes.next())
-                    {
-                        simplepath_nodes.push_back(*itNodes);
-                        if (pathLen++ >= 100)
-                        {
-                            isShort = false;
-                            break;       
-                        }
-                    }
+                    unsigned int abundance = _graph.queryAbundance((*itVecNodes).kmer);
+                    stdevTipAbundance += pow(fabs(abundance-meanTipAbundance),2);
                 }
-#endif
+                stdevTipAbundance = sqrt(stdevTipAbundance/nodes.size());
 
 
-                bool isTip = true; // TODO maybe: (mean_abundance < local_min_abundance); but in fact, we didn't use that in legacyTraversal. maybe it's a mistake.
-
-
-                if (isTip)
+                // explore the other two or more simple paths connected to that deadend, to get an abundance estimate
+                // but first, get the branching node(s) the tip is connected to (it's weird when it's more than one branching node though)
+                Graph::Vector<Node> connectedBranchingNodes = _graph.neighbors<Node>(nodes.back(), neighbors[0].direction);
+                unsigned int nbBranchingNodes = 0;
+                double meanNeighborsCoverage = 0;
+                for (size_t j = 0; j < connectedBranchingNodes.size(); j++)
                 {
-                    // delete it
-                    //
-
-                    //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
-                    for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
-                    {
-                        //DEBUG(cout << endl << "deleting tip node: " <<  _graph.toString (*itVecNodes) << endl);
-                        //_graph.deleteNode(*itVecNodes); // sequential version
-                        
-                        unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
-                        nodesToDelete[index] = true; // parallel version
-                    }
-
-                    __sync_fetch_and_add(&nbTipsRemoved, 1);
-                    
+                    // maybe use that code later, or clean it up
+                    //if (nodes.size() > 1 && connectedBranchingNodes[j] == nodes[nodes.size() - 2])
+                    //meanNeighborsCoverage += getMeanAbundanceOfNeighbors(nodes.back(), ( (nodes.size() > 1) ? nodes[nodes.size() - 2] : nodes.back()));
+                    meanNeighborsCoverage += getMeanAbundanceOfNeighbors(connectedBranchingNodes[j], nodes.back());
+                    nbBranchingNodes++;
                 }
+                if (nbBranchingNodes > 0)
+                    meanNeighborsCoverage /= nbBranchingNodes;
+
+                isRCTCTip = (meanNeighborsCoverage > RCTCcutoff * meanTipAbundance);
+                
+                DEBUG(cout << endl << "RCTCTip test, over " << nbBranchingNodes << " connected nodes. Global mean neighbors coverage: " << meanNeighborsCoverage <<  " compared to mean tip abundance over "<< nodes.size() << " values : " << meanTipAbundance << " stddev: " << stdevTipAbundance <<", is RCTC tip? " << isRCTCTip << endl);
+            }
+
+            bool isTip = isTopologicalTip || isRCTCTip; 
+
+
+            if (isTip)
+            {
+                // delete it
+                //
+
+                //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
+                for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
+                {
+                    //DEBUG(cout << endl << "deleting tip node: " <<  _graph.toString (*itVecNodes) << endl);
+                    //_graph.deleteNode(*itVecNodes); // sequential version
+
+                    unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
+                    nodesToDelete[index] = true; // parallel version
+                }
+
+                __sync_fetch_and_add(&nbTipsRemoved, 1);
+
             }
         }
-    // } // sequential
+        // } // sequential
     }); // parallel
 
     // now delete all nodes, in sequential (shouldn't take long)
@@ -410,7 +472,7 @@ unsigned long GraphSimplification::removeBubbles()
 
         for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
         {
-            DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
+            //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
             // _graph.deleteNode(*itVecNodes); // sequential
             unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
             nodesToDelete[index] = true; // parallel version
@@ -430,3 +492,173 @@ unsigned long GraphSimplification::removeBubbles()
 
     return nbBubblesRemoved;
 }
+
+
+// maybe.. someday.. will finish implementing that. not persuaded it's fully important for CAMI
+#if 0
+
+/* Again, let's see what spades 3.5 does.
+ *erroneous connection remover is:
+
+ RemoveLowCoverageEdges
+ calls config then calls:
+  omnigraph::EdgeRemovingAlgorithm which is same as tc
+
+  to_ec_lb in ../src/debruijn/simplification/simplification_settings.hpp
+  is exactly like tip clipping but with a different length (2 * (max tip length with coeff 5) - 1, so that's exactly 10*min(k,readlen/2) - 1)
+
+  icb is something that removes edges with coverage cov_bound / nb_iters * iter
+  where cov_bound is same as in cb
+
+  and it's asking for AlternativesPresenceCondition:
+
+    o   o                           o-->-O
+   /     \                             /
+   O-->---O    drawn differently:     /
+                                    O-->-o
+*/
+unsigned long GraphSimplification::removeErroneousConnections()
+{
+    unsigned int k = _graph.getKmerSize();
+    unsigned int maxTipLength = (unsigned int)((float)k * (10 - 1.0)) * 3   ;  // SPAdes mode
+
+    unsigned long nbECRemoved = 0;
+
+    /** We get an iterator over all nodes . */
+    char buffer[128];
+    sprintf(buffer, progressFormat0, ++_nbECRemovalPasses);
+    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
+
+    // parallel stuff: create a dispatcher ; support atomic operations
+    Dispatcher dispatcher (_nbCores);
+    ISynchronizer* synchro = System::thread().newSynchronizer();
+
+    // parallel stuff
+    vector<bool> nodesToDelete; // don't delete while parallel traversal, do it afterwards
+    unsigned long nbNodes = itNode.size();
+    nodesToDelete.resize(nbNodes); // number of graph nodes // (!) this will alloc 1 bit per kmer.
+    for (unsigned long i = 0; i < nbNodes; i++)
+        nodesToDelete[i] = false;
+
+    dispatcher.iterate (itNode, [&] (Node& node)
+    {
+
+        if (_graph.outdegree(node) == 2)
+        {
+            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
+            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
+
+            DEBUG(cout << endl << "putative EC node: " << _graph.toString (node) << endl);
+
+            /** We follow the outgoing simple paths to get their length and last neighbor */
+            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer);
+
+            vector<Node> nodes;
+            bool foundShortPath = false;
+            for (int i = 0; i < neighbors.size(); i++)
+            {
+                nodes.clear();
+                Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].from, neighbors[i].direction);
+                DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << endl);
+                bool isShort = true;
+                unsigned int pathLen = 1;
+                nodes.push_back(node);
+                for (itNodes.first(); !itNodes.isDone(); itNodes.next())
+                {
+                    nodes.push_back(*itNodes);
+                    if (k + pathLen++ >= maxECLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
+                    {
+                        isShort = false;
+                        break;       
+                    }
+                }
+                if (isShort)
+                {
+                    foundShortPath = true;
+                    break;
+                }
+            }
+
+            if (!foundShortPath || pathLen == 1) // can't do much if it's pathLen=1, we don't support edge removal, only node removal
+                return;
+
+            // at this point, the last node in "nodes" is the last node of a potential EC.
+            // check if it's connected to something that has in-branching and a out-neighbor. 
+            bool isDoublyConnected = (_graph.outdegree(nodes.back) >= 1 && _graph.indegree(nodes.back) > 1);
+
+            bool isTopologicalEC = isDoublyConnected;
+
+            DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree outdegree: " <<_graph.indegree(node) << " " << _graph.outdegree(node) << "istopotip: " << isTopologicalTip << endl);
+
+            if (isTopologicalEC)
+            {
+                
+#if 0
+                // coverage criterion
+                unsigned long mean_abundance = 0;
+                for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
+                {
+                    unsigned int abundance = _graph.queryAbundance(node.kmer);
+                    mean_abundance += abundance;
+                }
+
+                // explore the other two or more simple paths connected to that deadend to get a abundance estimate
+                Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(nodes.back());
+                for (size_t i = 0; i < neighbors.size(); i++)
+                {
+                    Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, neighbors[i].direction);
+                    int pathLen = 0;
+                    vector<Node> simplepath_nodes;
+                    for (itNodes.first(); !itNodes.isDone(); itNodes.next())
+                    {
+                        simplepath_nodes.push_back(*itNodes);
+                        if (pathLen++ >= 100)
+                        {
+                            isShort = false;
+                            break;       
+                        }
+                    }
+                }
+#endif
+
+
+                bool isTip = true; // TODO maybe: (mean_abundance < local_min_abundance); but in fact, we didn't use that in legacyTraversal. maybe it's a mistake.
+
+
+                if (isTip)
+                {
+                    // delete it
+                    //
+
+                    //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
+                    for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
+                    {
+                        //DEBUG(cout << endl << "deleting tip node: " <<  _graph.toString (*itVecNodes) << endl);
+                        //_graph.deleteNode(*itVecNodes); // sequential version
+                        
+                        unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
+                        nodesToDelete[index] = true; // parallel version
+                    }
+
+                    __sync_fetch_and_add(&nbTipsRemoved, 1);
+                    
+                }
+            }
+        }
+    // } // sequential
+    }); // parallel
+
+    // now delete all nodes, in sequential (shouldn't take long)
+    for (unsigned long i = 0; i < nbNodes; i++)
+    {
+        if (nodesToDelete[i])
+        {
+           _graph.deleteNode(i);
+        }
+    }
+
+
+    return nbTipsRemoved;
+}
+
+#endif
