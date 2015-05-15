@@ -361,10 +361,11 @@ void Minia::assemble (const Graph& graph)
         getInfo()->add (2, "graph simpification stats");
         getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
         getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
-        getInfo()->add (2, "traversal stats");
-        getInfo()->add (3, "contig end: no extension",             "%d", traversal->final_stats.couldnt_no_extension);
-        getInfo()->add (3, "contig end: out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
-        getInfo()->add (3, "contig end: in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
+        getInfo()->add (2, "assembly traversal stats");
+        getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
+        getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
+        getInfo()->add (3, "in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
+
     }
 
 }

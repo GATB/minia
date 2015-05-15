@@ -29,8 +29,8 @@
 
 using namespace std;
 
-static const char* progressFormat0 = "Minia : removing tips,    pass %2d";
-static const char* progressFormat1 = "Minia : removing bubbles, pass %2d";
+static const char* progressFormat0 = "removing tips,    pass %2d ";
+static const char* progressFormat1 = "removing bubbles, pass %2d ";
 
 double GraphSimplification::getSimplePathCoverage(Node node, Direction dir, unsigned int *pathLenOut, unsigned int maxLength)
 {
@@ -75,6 +75,36 @@ double GraphSimplification::getMeanAbundanceOfNeighbors(Node branchingNode, Node
     }
     meanNeighborsCoverage /= nbNeighbors;
     return meanNeighborsCoverage;
+}
+
+// this needs to be in Graph.cpp of gatb-core
+string GraphSimplification::path2string(Direction dir, Path p, Node endNode)
+{
+    // naive conversion from path to string
+
+    string p_str;
+    if (dir == DIR_INCOMING)
+    {
+        // TODO: remove this code once gatb-core is fixed w.r.t DIR_INCOMING bug
+        Node revstart = endNode;
+        p_str = _graph.toString(revstart);
+        for (size_t i = 0; i < p.size(); i++)
+            p_str.push_back(p.ascii(p.size()-1-i));
+    }
+    else
+    {
+        p_str = _graph.toString(p.start);
+        for (size_t i = 0; i < p.size(); i++)
+            p_str.push_back(p.ascii(i));
+    }
+    return p_str;
+}
+
+string maybe_print(long value, string str)
+{
+    if (value == 0)
+        return "";
+    return std::to_string(value) + " " + str;
 }
 
 /* okay let's analyze SPAdes 3.5 tip clipping conditions, just for fun: (following graph_simplifications.hpp and simplifications.info)
@@ -208,9 +238,6 @@ unsigned long GraphSimplification::removeTips()
                 double meanNeighborsCoverage = 0;
                 for (size_t j = 0; j < connectedBranchingNodes.size(); j++)
                 {
-                    // maybe use that code later, or clean it up
-                    //if (nodes.size() > 1 && connectedBranchingNodes[j] == nodes[nodes.size() - 2])
-                    //meanNeighborsCoverage += getMeanAbundanceOfNeighbors(nodes.back(), ( (nodes.size() > 1) ? nodes[nodes.size() - 2] : nodes.back()));
                     meanNeighborsCoverage += getMeanAbundanceOfNeighbors(connectedBranchingNodes[j], nodes.back());
                     nbBranchingNodes++;
                 }
@@ -260,10 +287,130 @@ unsigned long GraphSimplification::removeTips()
     return nbTipsRemoved;
 }
 
+Path GraphSimplification::heuristic_most_covered_path(
+        Direction dir, const Node startNode, const Node endNode, 
+        int traversal_depth, bool& success, double &abundance, bool most_covered)
+{
+    set<Node::Value> usedNode;
+    usedNode.insert(startNode.kmer);
+    Path current_path;
+    current_path.start = startNode;
+    success = true;
+    vector<int> abundances; 
+    abundances.push_back(_graph.queryAbundance(startNode.kmer));
+
+    Path res = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth, current_path, usedNode, success, abundances, most_covered);
+
+
+    abundance = 0;
+    for (unsigned int i = 0; i < abundances.size(); i++){
+        abundance += abundances[i];}
+    abundance /= abundances.size();
+
+    bool debug_abundances = false;
+    if (debug_abundances)
+    {
+        cout << "abundance for path (is most covered path: " << most_covered << "): ";
+        for (unsigned int i = 0; i < abundances.size(); i++)
+            cout << abundances[i]<< " ";
+        cout << ";"<<endl;
+    }
+
+    return res;
+}
+        
+Path GraphSimplification::heuristic_most_covered_path(
+        Direction dir, const Node startNode, const Node endNode, 
+        int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered)
+{
+    // inspired by all_consensuses_between
+
+    if (traversal_depth < -1)
+    {
+        success = false;
+        return current_path;
+    }
+
+    if (startNode.kmer == endNode.kmer)
+    {
+        return current_path;
+    }
+
+    Graph::Vector<Edge> neighbors = _graph.neighbors<Edge> (startNode, dir);
+
+    /** We loop these neighbors. */
+    vector<std::pair<int, Edge> > abundance_node;
+    for (size_t i=0; i<neighbors.size(); i++)
+    {
+        /** Shortcut. */
+        Edge& edge = neighbors[i];
+
+        // don't resolve bubbles containing loops
+        // (tandem repeats make things more complicated)
+        // that's a job for a gapfiller
+        if (usedNode.find(edge.to.kmer) != usedNode.end())
+        {
+            success = false;
+            return current_path;
+        }
+
+        unsigned int abundance = _graph.queryAbundance(neighbors[i].to.kmer);
+        abundance_node.push_back(std::make_pair(abundance, edge));
+    }
+
+    std::sort(abundance_node.begin(), abundance_node.end()); // sort nodes by abundance
+    if (most_covered) 
+        std::reverse(abundance_node.begin(), abundance_node.end()); // decreasing abundances
+
+    // traverse graph in abundance order, return most abundant path
+    for (unsigned int i = 0; i < abundance_node.size(); i++)
+    {
+        Edge edge = abundance_node[i].second;
+
+        // generate extended consensus sequence
+        Path extended_path(current_path);
+        extended_path.push_back (edge.nt);
+
+        // generate list of used kmers (to prevent loops)
+        set<Node::Value> extended_kmers (usedNode);
+        extended_kmers.insert (edge.to.kmer);
+
+        // extend abundances
+        vector<int> extended_abundances (abundances);
+        extended_abundances.push_back(abundance_node[i].first);
+
+        // recursive call to all_consensuses_between
+        Path new_path = heuristic_most_covered_path (
+            dir,
+            edge.to,
+            endNode,
+            traversal_depth - 1,
+            extended_path,
+            extended_kmers,
+            success,
+            extended_abundances,
+            most_covered
+        );
+
+        if (success)
+        {
+            abundances = extended_abundances;
+            return new_path; 
+        }
+    }
+
+    return current_path;
+
+
+}
 
 unsigned long GraphSimplification::removeBubbles()
 {
     unsigned long nbBubblesRemoved = 0;
+    unsigned long nbCandidateBubbles = 0;
+    unsigned long nbConsensusFailed = 0;
+    unsigned long nbBubbleSimilarAbundance = 0;
+    unsigned long nbValidationFailed = 0;
     
     // constants are the same as legacyTraversal
     // small change for depth: the max with 3k-1 (a bit arbitrary..)
@@ -280,6 +427,15 @@ unsigned long GraphSimplification::removeBubbles()
     ISynchronizer* synchro = System::thread().newSynchronizer();
 
     Terminator& dummyTerminator = NullTerminator::singleton(); // Frontline wants one
+
+    MonumentTraversal * traversal = new MonumentTraversal(
+            _graph,
+            dummyTerminator,
+            10000000,
+            max_depth,
+            max_breadth
+            );
+    LOCAL(traversal);
 
     // sequential
     /** We loop over all nodes. */
@@ -341,7 +497,10 @@ unsigned long GraphSimplification::removeBubbles()
         do  {
             bool should_continue = frontline.go_next_depth();
             if (!should_continue) 
+            {
+                cleanBubble = false;
                 break;
+            }
 
             // don't allow a depth too large
             if (frontline.depth() > max_depth)
@@ -385,70 +544,96 @@ unsigned long GraphSimplification::removeBubbles()
         if (!cleanBubble)
             return; // parallel
         // continue; // sequential
+        
+        __sync_fetch_and_add(&nbCandidateBubbles, 1);
 
         Node startNode = startingNode; 
         Node endNode = frontline.front().node;
         int traversal_depth = frontline.depth();
 
-        // code taken from Traversal
-        MonumentTraversal * traversal = new MonumentTraversal(
-                _graph,
-                dummyTerminator,
-                10000000,
-                max_depth,
-                max_breadth
-                );
-        LOCAL(traversal);
-
-        // find all consensuses between start node and end node
         bool success;
-        set<Path> consensuses = traversal->all_consensuses_between (dir, startNode, endNode, traversal_depth+1, success);
+
+        // not exploring all consensuses anymore, instead, we'll greedily search directly for the most abundant one
+        // hope that it will be faster.
+        // turns out it's also more accurate!
+#if 0
+        // code taken from Traversal
+        //
+        // find all consensuses between start node and end node
+        set<Path> consensuses = traversal->all_consensuses_between (dir, startNode, endNode, traversal_depth+2, success);
 
         // if consensus phase failed, stop
         if (!success)
-            return; // parallel
-        // continue; // sequential
+        {
+            __sync_fetch_and_add(&nbConsensusFailed, 1);
+            return;
+        }
 
-        Path consensus;
+        Path consensus_exhaust;
         consensus.resize (0);
         // validate paths, based on identity
         /* small digression. it's interesting to see that SPAdes 3.5 does not do identity-based bubble popping, at all! 
          * it pops bubble based on something like the ratio between most covered and less covered path is (whether it is above 1.1).
-         * not sure if it's betetr. anyhow it'd rather do less strict identity bubble popping. legacy minia has 90%, i'll lower to 85%. 
-         * I still see 80% bubbles in coli (SRR001665_1.fa) with k=22 for instance.
+         * not sure if it's betetr. anyhow it'd rather do less strict identity bubble popping. legacy minia has 90%, i'll lower to 80%. 
          */
-        bool validated = traversal->validate_consensuses (consensuses, consensus);
-        if (!validated)   
-            return; // parallel
-        // continue; // sequential
+        bool validated = traversal->validate_consensuses (consensuses, consensus_exhaust);
+        if (!validated){
+            __sync_fetch_and_add(&nbValidationFailed, 1);
+            return; 
+        }
 
         // ready to pop the bubble and keep only the validated consensus
         DEBUG(cout << endl << "READY TO POP!\n");
 
-        // also taken from Traversal
-        // naive conversion from path to string
-        Path p = consensus;
+        string p_str_exhaust = path2string(dir, consensus, endNode);
+#endif
 
-        string p_str;
+        // another possibly faster method, and possibly more accurate, than above
+        double mean_abundance_most_covered;
+        double mean_abundance_least_covered;
+        Path heuristic_p_most = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth+2, success, mean_abundance_most_covered);
 
-        if (dir == DIR_INCOMING)
+        if (!success)
         {
-            // TODO: remove this code once gatb-core is fixed w.r.t DIR_INCOMING bug
-            Node revstart = endNode;
-            p_str = _graph.toString(revstart);
-            for (size_t i = 0; i < p.size(); i++)
-                p_str.push_back(p.ascii(p.size()-1-i));
+            __sync_fetch_and_add(&nbConsensusFailed, 1);
+            return;
+        }
+
+        // now get the least covered path
+        Path heuristic_p_least = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth+2, success, mean_abundance_least_covered, false);
+ 
+        if (!success)
+        {
+            __sync_fetch_and_add(&nbConsensusFailed, 1);
+            return;
+        }
+
+        cout << "most/least covered path: " << mean_abundance_most_covered << "/" << mean_abundance_least_covered << endl;
+
+        if (mean_abundance_most_covered < 1.1 * mean_abundance_least_covered)
+        {
+            __sync_fetch_and_add(&nbBubbleSimilarAbundance, 1);
+            return;
+        }
+
+        string p_str_heur = path2string(dir, heuristic_p_most, endNode);
+
+#if 0 
+        // comparison with both bubble exporing codes (exhaustive but bounded (ie minia 1) vs greedy but unbounded)
+        if (p_str != p_str_heur)
+        {
+            cout << "heuristic path doesn't agree with validated path: " << endl << p_str << endl << p_str_heur << endl;
         }
         else
-        {
-            p_str = _graph.toString(p.start);
-            for (size_t i = 0; i < p.size(); i++)
-                p_str.push_back(p.ascii(i));
-        }
+            cout << "heuristic path AGREE!" << endl;
+#endif
+
+        string p_str = p_str_heur;
+        Path consensus = heuristic_p_most;
 
         DEBUG(cout << "consensus string to keep: " << p_str << endl);
 
-        for (size_t i = 0; i < p.size(); i++)
+        for (size_t i = 0; i < consensus.size(); i++)
         {            
             Node node = _graph.buildNode((char *)(p_str.c_str()), i); 
             int nb_erased = all_involved_extensions.erase(node.kmer);
@@ -474,6 +659,7 @@ unsigned long GraphSimplification::removeBubbles()
         {
             //DEBUG(cout << endl << "deleting bubble node: " <<  _graph.toString (*itVecNodes) << endl);
             // _graph.deleteNode(*itVecNodes); // sequential
+
             unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
             nodesToDelete[index] = true; // parallel version
         }
@@ -489,6 +675,23 @@ unsigned long GraphSimplification::removeBubbles()
         if (nodesToDelete[i])
            _graph.deleteNode(i);
 
+    bool debugThatPass = true;
+    if (debugThatPass)
+    {
+        traversal->commit_stats();
+        cout << nbCandidateBubbles << " candidate bubbles.\nAmong them, " << nbBubblesRemoved << " bubbles popped. " << endl;
+        cout << nbConsensusFailed << " kept due to topology: " <<  
+            maybe_print(traversal->final_stats.couldnt_consensus_negative_depth, "abnormal depth ; ")  <<
+            maybe_print(traversal->final_stats.couldnt_consensus_loop, "loop in consensus generation ; ") << 
+            maybe_print(traversal->final_stats.couldnt_consensus_amount, "too many paths ; ") << endl;
+        cout << nbValidationFailed << " kept during path collapsing : " <<
+            maybe_print(nbBubbleSimilarAbundance, "similar abundance ") << 
+            maybe_print(traversal->final_stats.couldnt_validate_bubble_mean_depth, "high mean length, ") << 
+            maybe_print(traversal->final_stats.couldnt_validate_bubble_deadend, "just one long path, ") << 
+            maybe_print(traversal->final_stats.couldnt_validate_bubble_stdev, "not roughly same length, ") << 
+            maybe_print(traversal->final_stats.couldnt_validate_bubble_identity, "not identical enough, ") << 
+            maybe_print(traversal->final_stats.couldnt_validate_bubble_long_chosen, "too long chosen consensus.") << endl;
+    }
 
     return nbBubblesRemoved;
 }
