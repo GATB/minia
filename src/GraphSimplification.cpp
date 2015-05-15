@@ -411,6 +411,7 @@ unsigned long GraphSimplification::removeBubbles()
     unsigned long nbConsensusFailed = 0;
     unsigned long nbBubbleSimilarAbundance = 0;
     unsigned long nbValidationFailed = 0;
+    unsigned long nbAlreadyPopped = 0;
     
     // constants are the same as legacyTraversal
     // small change for depth: the max with 3k-1 (a bit arbitrary..)
@@ -608,7 +609,7 @@ unsigned long GraphSimplification::removeBubbles()
             return;
         }
 
-        cout << "most/least covered path: " << mean_abundance_most_covered << "/" << mean_abundance_least_covered << endl;
+        //cout << "most/least covered path: " << mean_abundance_most_covered << "/" << mean_abundance_least_covered << endl;
 
         if (mean_abundance_most_covered < 1.1 * mean_abundance_least_covered)
         {
@@ -652,7 +653,10 @@ unsigned long GraphSimplification::removeBubbles()
             if (bubblesAlreadyPopped.find(endNode.kmer) == bubblesAlreadyPopped.end())
                 bubblesAlreadyPopped.insert(endNode.kmer);
             else
+            {
+                nbAlreadyPopped++;
                 return;
+            }
         }
 
         for (set<Node>::iterator itVecNodes = all_involved_extensions.begin(); itVecNodes != all_involved_extensions.end(); itVecNodes++)
@@ -680,12 +684,15 @@ unsigned long GraphSimplification::removeBubbles()
     {
         traversal->commit_stats();
         cout << nbCandidateBubbles << " candidate bubbles.\nAmong them, " << nbBubblesRemoved << " bubbles popped. " << endl;
-        cout << nbConsensusFailed << " kept due to topology: " <<  
+        cout << "kept : " << maybe_print(nbConsensusFailed, " due to topology ;") <<  
+            // those belong to those kept due to topology
             maybe_print(traversal->final_stats.couldnt_consensus_negative_depth, "abnormal depth ; ")  <<
             maybe_print(traversal->final_stats.couldnt_consensus_loop, "loop in consensus generation ; ") << 
-            maybe_print(traversal->final_stats.couldnt_consensus_amount, "too many paths ; ") << endl;
-        cout << nbValidationFailed << " kept during path collapsing : " <<
-            maybe_print(nbBubbleSimilarAbundance, "similar abundance ") << 
+            maybe_print(traversal->final_stats.couldnt_consensus_amount, "too many paths ; ");
+
+        cout << maybe_print(nbValidationFailed, "during path collapsing ; ") <<
+            maybe_print(nbBubbleSimilarAbundance, "due to similar abundance ; ") << 
+            maybe_print(nbAlreadyPopped, "found by another thread ") << 
             maybe_print(traversal->final_stats.couldnt_validate_bubble_mean_depth, "high mean length, ") << 
             maybe_print(traversal->final_stats.couldnt_validate_bubble_deadend, "just one long path, ") << 
             maybe_print(traversal->final_stats.couldnt_validate_bubble_stdev, "not roughly same length, ") << 
