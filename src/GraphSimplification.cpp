@@ -21,7 +21,7 @@
 // We include required definitions
 /********************************************************************************/
 
-#define DEBUG(a)   a
+#define DEBUG(a)   //a
 
 #include <vector>
 #include <set>
@@ -768,7 +768,9 @@ unsigned long GraphSimplification::removeBulges()
                 bool foundShortPath = false;
                 unsigned int pathLen = 0;
 
-                if (_graph.isNodeDeleted(neighbors[i].to)) { continue;}
+                unsigned long index =_graph.nodeMPHFIndex(neighbors[i].to);
+                if (_graph.isNodeDeleted(index)) { continue;}
+                if (nodesToDelete[index]) { continue;}
 
                 Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, dir);
                 DEBUG(cout << endl << "neighbors " << i << "/" << neighbors.size() << " from: " << _graph.toString (neighbors[i].to) << " dir: " << dir << endl);
@@ -788,6 +790,9 @@ unsigned long GraphSimplification::removeBulges()
                 if (!isShort || pathLen == 0) // can't do much if it's pathLen=0, we don't support edge removal, only node removal
                     continue;
 
+                index =_graph.nodeMPHFIndex(nodes.back());
+                if (nodesToDelete[index]) { continue;}
+
                 Graph::Vector<Edge> outneighbors = _graph.neighbors<Edge>(nodes.back(), dir);
                 Node endNode = outneighbors[0].to;
 
@@ -804,7 +809,7 @@ unsigned long GraphSimplification::removeBulges()
                 if (!isTopologicalBulge)
                     continue;
 
-                unsigned int depth = std::max((unsigned int)(pathLen * 2),(unsigned int) 100); // following SPAdes
+                unsigned int depth = std::max((unsigned int)(pathLen * 1.1),(unsigned int) 3); // following SPAdes
                 double mean_abundance_most_covered;
                 bool success;
                 Node startNode = node;
@@ -815,9 +820,13 @@ unsigned long GraphSimplification::removeBulges()
 
                 DEBUG(cout << endl << "alternative path is:  "<< path2string(dir, heuristic_p_most, endNode)<< " abundance: "<< mean_abundance_most_covered <<endl);
 
-                double mean_abundance_least_covered;
-                Path heuristic_p_least = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_least_covered,false);
-                DEBUG(cout << endl << "alternative least is: "<< path2string(dir, heuristic_p_least, endNode)<< " abundance: "<< mean_abundance_least_covered <<endl);
+                bool debug = false;
+                if (debug)
+                {
+                    double mean_abundance_least_covered;
+                    Path heuristic_p_least = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_least_covered,false);
+                    DEBUG(cout << endl << "alternative least is: "<< path2string(dir, heuristic_p_least, endNode)<< " abundance: "<< mean_abundance_least_covered <<endl);
+                }
 
                 unsigned int dummyLen;
                 double simplePathCoverage = getSimplePathCoverage(nodes[1], dir, &dummyLen);
@@ -840,7 +849,7 @@ unsigned long GraphSimplification::removeBulges()
                 DEBUG(cout << endl << "BULGE of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
                 for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
                 {
-                    DEBUG(cout << endl << "deleting node " << _graph.toString(*itVecNodes) << endl);
+                    //DEBUG(cout << endl << "deleting node " << _graph.toString(*itVecNodes) << endl);
                     unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
                     nodesToDelete[index] = true; // parallel version
                 }
