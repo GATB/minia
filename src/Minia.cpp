@@ -291,17 +291,19 @@ void Minia::assemble (const Graph& graph)
 
             do
             {
-                nbBubblesRemoved = graphSimplification.removeBubbles();
+                //nbBubblesRemoved = graphSimplification.removeBubbles();
+                nbBubblesRemoved = graphSimplification.removeBulges();
                 if (bubbleRemoval.size() != 0)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
+            while (nbBubblesRemoved >= 10 && graphSimplification._nbBubbleRemovalPasses < 20);
 
             do
             {
                 nbTipsRemoved = graphSimplification.removeTips();
-                nbBubblesRemoved = graphSimplification.removeBubbles();
+                //nbBubblesRemoved = graphSimplification.removeBubbles();
+                nbBubblesRemoved = graphSimplification.removeBulges();
                 if (tipRemoval.size() != 0)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
@@ -309,7 +311,7 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-           while (nbBubblesRemoved > 10 && graphSimplification._nbBubbleRemovalPasses < 20);
+           while (nbBubblesRemoved >= 10  && graphSimplification._nbBubbleRemovalPasses < 20);
         }
 
         /** We loop over all nodes. */

@@ -32,16 +32,18 @@ class GraphSimplification : public SmartPointer
 public:
 
     GraphSimplification (const Graph& graph, int nbCores)
-        : _nbTipRemovalPasses(0), _nbBubbleRemovalPasses(0), _graph(graph), _nbCores(nbCores) {}
+        : _nbTipRemovalPasses(0), _nbBubbleRemovalPasses(0), _nbBulgeRemovalPasses(0), _graph(graph), _nbCores(nbCores) {}
 
     unsigned long removeTips();
     unsigned long removeBubbles();
+    unsigned long removeBulges();
 
     double getSimplePathCoverage(Node node, Direction dir, unsigned int* pathLen = NULL, unsigned int maxLength = 0);
     double getMeanAbundanceOfNeighbors(Node branchingNode, Node nodeToExclude);
 
     int _nbTipRemovalPasses;
     int _nbBubbleRemovalPasses;
+    int _nbBulgeRemovalPasses;
 
 protected:
     const Graph&  _graph;

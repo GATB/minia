@@ -21,33 +21,33 @@
 // We include required definitions
 /********************************************************************************/
 
-#define DEBUG(a)   //a
+#define DEBUG(a)   a
 
 #include <vector>
 #include <set>
+#include <stack>
 #include <GraphSimplification.hpp>
 
 using namespace std;
 
 static const char* progressFormat0 = "removing tips,    pass %2d ";
 static const char* progressFormat1 = "removing bubbles, pass %2d ";
+static const char* progressFormat2 = "removing bulges,  pass %2d ";
 
 double GraphSimplification::getSimplePathCoverage(Node node, Direction dir, unsigned int *pathLenOut, unsigned int maxLength)
 {
     Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (node, dir);
-    unsigned long mean_abundance = _graph.queryAbundance(node.kmer);
+    unsigned long total_abundance = _graph.queryAbundance(node.kmer);
     unsigned int pathLen = 1;
     for (itNodes.first(); !itNodes.isDone(); itNodes.next())
     {
-        Node node = *itNodes;
-        unsigned int abundance = _graph.queryAbundance(node.kmer);
-        mean_abundance += abundance;
+        total_abundance += _graph.queryAbundance((*itNodes).kmer);
         pathLen++;
         if (maxLength > 0 && pathLen >= maxLength)
             break;
     }
     *pathLenOut = pathLen;
-    return (double)mean_abundance / (double)pathLen;
+    return ((double)total_abundance) / ((double)pathLen);
 }
 
 // gets the mean abundance of neighboring paths around a branching node (excluding the path that starts with nodeToExclude, e.g. the tip itself)
@@ -56,22 +56,22 @@ double GraphSimplification::getMeanAbundanceOfNeighbors(Node branchingNode, Node
     Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(branchingNode);
     unsigned int nbNeighbors = 0;
     double meanNeighborsCoverage = 0;
-    DEBUG(cout << endl << "called getMeanAbudanceOfNeighbors for node " << _graph.toString(branchingNode) << " of degrees " << _graph.indegree(branchingNode) <<"/"<< _graph.outdegree(branchingNode)<< " excluding node  " <<  _graph.toString (nodeToExclude) << endl);
+    //DEBUG(cout << endl << "called getMeanAbudanceOfNeighbors for node " << _graph.toString(branchingNode) << " of degrees " << _graph.indegree(branchingNode) <<"/"<< _graph.outdegree(branchingNode)<< " excluding node  " <<  _graph.toString (nodeToExclude) << endl);
     for (size_t i = 0; i < neighbors.size(); i++)
     {
         Node neighbor = neighbors[i].to;
         if (neighbor == nodeToExclude) // (in gatb-core, Node == Node means Node.kmer == Node.kmer)
         {
-            DEBUG(cout << endl << "good, seen the node to exclude" << endl);
+            //DEBUG(cout << endl << "good, seen the node to exclude" << endl);
             continue; 
         }
 
         unsigned int pathLen;
-        unsigned int simplePathCoverage = getSimplePathCoverage(neighbor, neighbors[i].direction, &pathLen, 100);
+        double simplePathCoverage = getSimplePathCoverage(neighbor, neighbors[i].direction, &pathLen, 100);
         meanNeighborsCoverage += simplePathCoverage;
         nbNeighbors++;
 
-        DEBUG(cout << endl << "tip neighbor " << nbNeighbors << " : " <<  _graph.toString (neighbor) << " direction: " << neighbors[i].direction << " meancoverage: " <<simplePathCoverage << " over " << pathLen << " kmers" << endl);
+        //DEBUG(cout << endl << "tip neighbor " << nbNeighbors << " : " <<  _graph.toString (neighbor) << " direction: " << neighbors[i].direction << " meancoverage: " <<simplePathCoverage << " over " << pathLen << " kmers" << endl);
     }
     meanNeighborsCoverage /= nbNeighbors;
     return meanNeighborsCoverage;
@@ -166,12 +166,12 @@ unsigned long GraphSimplification::removeTips()
             if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
             if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
 
-            DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
+            //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
             /** We follow the simple path to get its length */
             Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has a single neighbor
-            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction);
-            DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << " direction: " << neighbors[0].direction << endl);
+            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction); // .from should be .to but doesn't matter here
+            //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << " direction: " << neighbors[0].direction << endl);
 
             bool isShortTopological = true;
             bool isShortRCTC = true;
@@ -203,13 +203,13 @@ unsigned long GraphSimplification::removeTips()
                 isConnected |=  (_graph.indegree(node) != 0 || _graph.outdegree(node) != 0); 
             }
 
-            bool isTopologicalTip = isShortTopological && isConnected; 
+            bool isTopologicalShortTip = isShortTopological && isConnected; 
             bool isMaybeRCTCTip = isShortRCTC && isConnected;
 
-            DEBUG(cout << endl << "pathlen: " << pathLen << " last node " << _graph.toString(nodes.back()) << " neighbors in/out: " <<_graph.indegree(nodes.back()) << " " << _graph.outdegree(nodes.back()) << " istopotip: " << isTopologicalTip << endl);
+            //DEBUG(cout << endl << "pathlen: " << pathLen << " last node " << _graph.toString(nodes.back()) << " neighbors in/out: " <<_graph.indegree(nodes.back()) << " " << _graph.outdegree(nodes.back()) << " istoposhorttip: " << isTopologicalShortTip << endl);
 
             bool isRCTCTip = false;
-            if (!isTopologicalTip && isMaybeRCTCTip)
+            if (!isTopologicalShortTip && isMaybeRCTCTip)
             {
                 
                 // coverage of the putative tip
@@ -246,10 +246,10 @@ unsigned long GraphSimplification::removeTips()
 
                 isRCTCTip = (meanNeighborsCoverage > RCTCcutoff * meanTipAbundance);
                 
-                DEBUG(cout << endl << "RCTCTip test, over " << nbBranchingNodes << " connected nodes. Global mean neighbors coverage: " << meanNeighborsCoverage <<  " compared to mean tip abundance over "<< nodes.size() << " values : " << meanTipAbundance << " stddev: " << stdevTipAbundance <<", is RCTC tip? " << isRCTCTip << endl);
+                //DEBUG(cout << endl << "RCTCTip test, over " << nbBranchingNodes << " connected nodes. Global mean neighbors coverage: " << meanNeighborsCoverage <<  " compared to mean tip abundance over "<< nodes.size() << " values : " << meanTipAbundance << " stddev: " << stdevTipAbundance <<", is RCTC tip? " << isRCTCTip << endl);
             }
 
-            bool isTip = isTopologicalTip || isRCTCTip; 
+            bool isTip = isTopologicalShortTip || isRCTCTip; 
 
 
             if (isTip)
@@ -287,6 +287,7 @@ unsigned long GraphSimplification::removeTips()
     return nbTipsRemoved;
 }
 
+/* note: the returned mean abundance does not include start and end nodes */
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
         int traversal_depth, bool& success, double &abundance, bool most_covered)
@@ -297,7 +298,6 @@ Path GraphSimplification::heuristic_most_covered_path(
     current_path.start = startNode;
     success = true;
     vector<int> abundances; 
-    abundances.push_back(_graph.queryAbundance(startNode.kmer));
 
     Path res = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth, current_path, usedNode, success, abundances, most_covered);
 
@@ -377,7 +377,8 @@ Path GraphSimplification::heuristic_most_covered_path(
 
         // extend abundances
         vector<int> extended_abundances (abundances);
-        extended_abundances.push_back(abundance_node[i].first);
+        if (edge.to.kmer != endNode.kmer) // skip abundance of last node
+            extended_abundances.push_back(abundance_node[i].first);
 
         // recursive call to all_consensuses_between
         Path new_path = heuristic_most_covered_path (
@@ -404,6 +405,21 @@ Path GraphSimplification::heuristic_most_covered_path(
 
 }
 
+/* same treatment as tip clipping: let's take some information from spades. 
+ * it's interesting to see that SPAdes 3.5 does not do identity-based bubble popping, at all! 
+ * actually, it's not even doing bubble popping. it's bulge popping.
+ * it pops bulges based on something like the ratio between most examined simple path and a more covered path is (whether it is above 1.1).
+ * 
+ * not sure if this ratio is better than identity.
+ * anyhow it'd rather do less strict identity bubble popping. legacy minia has 90%, i lowered it to 80%. 
+ * this present algo still failed to pop most bubbles in the buchnera population test (test/buchnera_test.sh), because of difficulty to enumerate all paths in a bubble
+ * so i switched to a heuristic path finding algorithm (didn't look at spades')
+ * still not ideal, as FrontlineReachable missed many bubbles. that led to a way-increased assembly size (1.3 Mbp instead of 600kbp), 
+ * that can be decreased to 900k if FrontlineReachable check() is forced to always true (but also pops bad bubbles)
+ * 
+ * that being said, let's attempt to pop bulges instead. seems better! 
+ */
+
 unsigned long GraphSimplification::removeBubbles()
 {
     unsigned long nbBubblesRemoved = 0;
@@ -413,9 +429,10 @@ unsigned long GraphSimplification::removeBubbles()
     unsigned long nbValidationFailed = 0;
     unsigned long nbAlreadyPopped = 0;
     
+    unsigned int k = _graph.getKmerSize();
+    
     // constants are the same as legacyTraversal
-    // small change for depth: the max with 3k-1 (a bit arbitrary..)
-    unsigned int max_depth = std::max(500, 3* (int) _graph.getKmerSize());
+    unsigned int max_depth = std::max(500, 3* (int) _graph.getKmerSize()); // legacytraversal with a small change for depth: the max with 3k-1 (a bit arbitrary..)
     unsigned int max_breadth = 20; 
 
     /** We get an iterator over all nodes . */
@@ -542,6 +559,8 @@ unsigned long GraphSimplification::removeBubbles()
             cleanBubble = false;
         }
 
+        cleanBubble &= frontline.isReachable();
+
         if (!cleanBubble)
             return; // parallel
         // continue; // sequential
@@ -573,11 +592,7 @@ unsigned long GraphSimplification::removeBubbles()
         Path consensus_exhaust;
         consensus.resize (0);
         // validate paths, based on identity
-        /* small digression. it's interesting to see that SPAdes 3.5 does not do identity-based bubble popping, at all! 
-         * it pops bubble based on something like the ratio between most covered and less covered path is (whether it is above 1.1).
-         * not sure if it's betetr. anyhow it'd rather do less strict identity bubble popping. legacy minia has 90%, i'll lower to 80%. 
-         */
-        bool validated = traversal->validate_consensuses (consensuses, consensus_exhaust);
+       bool validated = traversal->validate_consensuses (consensuses, consensus_exhaust);
         if (!validated){
             __sync_fetch_and_add(&nbValidationFailed, 1);
             return; 
@@ -684,7 +699,7 @@ unsigned long GraphSimplification::removeBubbles()
     {
         traversal->commit_stats();
         cout << nbCandidateBubbles << " candidate bubbles.\nAmong them, " << nbBubblesRemoved << " bubbles popped. " << endl;
-        cout << "kept : " << maybe_print(nbConsensusFailed, " due to topology ;") <<  
+        cout << "kept : " << maybe_print(nbConsensusFailed, "due to topology ; ") <<  
             // those belong to those kept due to topology
             maybe_print(traversal->final_stats.couldnt_consensus_negative_depth, "abnormal depth ; ")  <<
             maybe_print(traversal->final_stats.couldnt_consensus_loop, "loop in consensus generation ; ") << 
@@ -704,39 +719,19 @@ unsigned long GraphSimplification::removeBubbles()
 }
 
 
-// maybe.. someday.. will finish implementing that. not persuaded it's fully important for CAMI
-#if 0
-
-/* Again, let's see what spades 3.5 does.
- *erroneous connection remover is:
-
- RemoveLowCoverageEdges
- calls config then calls:
-  omnigraph::EdgeRemovingAlgorithm which is same as tc
-
-  to_ec_lb in ../src/debruijn/simplification/simplification_settings.hpp
-  is exactly like tip clipping but with a different length (2 * (max tip length with coeff 5) - 1, so that's exactly 10*min(k,readlen/2) - 1)
-
-  icb is something that removes edges with coverage cov_bound / nb_iters * iter
-  where cov_bound is same as in cb
-
-  and it's asking for AlternativesPresenceCondition:
-
-    o   o                           o-->-O
-   /     \                             /
-   O-->---O    drawn differently:     /
-                                    O-->-o
-*/
-unsigned long GraphSimplification::removeErroneousConnections()
+// in progress
+unsigned long GraphSimplification::removeBulges()
 {
     unsigned int k = _graph.getKmerSize();
-    unsigned int maxTipLength = (unsigned int)((float)k * (10 - 1.0)) * 3   ;  // SPAdes mode
+    unsigned int coeff = 3;
+    unsigned int additive_coeff = 100;
+    unsigned int maxBulgeLength = std::max((unsigned int)((double)k * coeff), (unsigned int)(k + additive_coeff)); // SPAdes, exactly
 
-    unsigned long nbECRemoved = 0;
+    unsigned long nbBulgesRemoved = 0;
 
     /** We get an iterator over all nodes . */
     char buffer[128];
-    sprintf(buffer, progressFormat0, ++_nbECRemovalPasses);
+    sprintf(buffer, progressFormat2, ++_nbBulgeRemovalPasses);
     ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
 
     // parallel stuff: create a dispatcher ; support atomic operations
@@ -752,110 +747,110 @@ unsigned long GraphSimplification::removeErroneousConnections()
 
     dispatcher.iterate (itNode, [&] (Node& node)
     {
+      // need to search in both directions
+      for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
+      {
+         if ((_graph.outdegree(node) >= 2 && dir == DIR_OUTCOMING) || (_graph.indegree(node) >= 2 && dir == DIR_INCOMING))
+         {
+            unsigned long index =_graph.nodeMPHFIndex(node);
+            if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
+            if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
 
-        if (_graph.outdegree(node) == 2)
-        {
-            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
-            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
-
-            DEBUG(cout << endl << "putative EC node: " << _graph.toString (node) << endl);
+            DEBUG(cout << endl << "putative bulge node: " << _graph.toString (node) << endl);
 
             /** We follow the outgoing simple paths to get their length and last neighbor */
-            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer);
+            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node, dir);
 
-            vector<Node> nodes;
-            bool foundShortPath = false;
-            for (int i = 0; i < neighbors.size(); i++)
+            // do everying for each possible short simple path that is neighbor of that node
+            for (unsigned int i = 0; i < neighbors.size(); i++)
             {
-                nodes.clear();
-                Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].from, neighbors[i].direction);
-                DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << endl);
+                vector<Node> nodes;
+                bool foundShortPath = false;
+                unsigned int pathLen = 0;
+
+                if (_graph.isNodeDeleted(neighbors[i].to)) { continue;}
+
+                Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, dir);
+                DEBUG(cout << endl << "neighbors " << i << "/" << neighbors.size() << " from: " << _graph.toString (neighbors[i].to) << " dir: " << dir << endl);
                 bool isShort = true;
-                unsigned int pathLen = 1;
-                nodes.push_back(node);
+                pathLen = 0;
+                nodes.push_back(neighbors[i].to);
                 for (itNodes.first(); !itNodes.isDone(); itNodes.next())
                 {
                     nodes.push_back(*itNodes);
-                    if (k + pathLen++ >= maxECLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
+                    if (k + pathLen++ >= maxBulgeLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
                     {
                         isShort = false;
                         break;       
                     }
                 }
-                if (isShort)
+
+                if (!isShort || pathLen == 0) // can't do much if it's pathLen=0, we don't support edge removal, only node removal
+                    continue;
+
+                Graph::Vector<Edge> outneighbors = _graph.neighbors<Edge>(nodes.back(), dir);
+                Node endNode = outneighbors[0].to;
+
+                DEBUG(cout << endl << "last simple path node: "<< _graph.toString(nodes.back()) << " has " << outneighbors.size() << " outneighbors" << endl);
+
+                // at this point, the last node in "nodes" is the last node of a potential Bulge path, and endNode is hopefully a branching node right after.
+                // check if it's connected to something that has in-branching. 
+                bool isDoublyConnected = (_graph.indegree(endNode) > 1 && dir==DIR_OUTCOMING) || (dir==DIR_INCOMING && _graph.outdegree(endNode) > 1);
+
+                bool isTopologicalBulge = isDoublyConnected;
+
+                DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree/outdegree: " <<_graph.indegree(nodes.back()) << "/" << _graph.outdegree(nodes.back()) << " istopobulge: " << isTopologicalBulge << endl);
+
+                if (!isTopologicalBulge)
+                    continue;
+
+                unsigned int depth = std::max((unsigned int)(pathLen * 2),(unsigned int) 100); // following SPAdes
+                double mean_abundance_most_covered;
+                bool success;
+                Node startNode = node;
+                Path heuristic_p_most = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_most_covered);
+
+                if (!success)
+                    continue;
+
+                DEBUG(cout << endl << "alternative path is:  "<< path2string(dir, heuristic_p_most, endNode)<< " abundance: "<< mean_abundance_most_covered <<endl);
+
+                double mean_abundance_least_covered;
+                Path heuristic_p_least = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_least_covered,false);
+                DEBUG(cout << endl << "alternative least is: "<< path2string(dir, heuristic_p_least, endNode)<< " abundance: "<< mean_abundance_least_covered <<endl);
+
+                unsigned int dummyLen;
+                double simplePathCoverage = getSimplePathCoverage(nodes[1], dir, &dummyLen);
+
+                DEBUG(cout << endl << "retraced bulge path over length: " << dummyLen << endl);
+
+                bool isBulge =  simplePathCoverage * 1.1  <=  mean_abundance_most_covered;
+
+                DEBUG(cout << endl << "bulge coverages: " << simplePathCoverage<< "/" <<  mean_abundance_most_covered  << endl);
+
+                if (!isBulge)
                 {
-                    foundShortPath = true;
-                    break;
+                    DEBUG(cout << endl << "not a bulge due to similar coverage" << endl);
+                    continue;
                 }
-            }
 
-            if (!foundShortPath || pathLen == 1) // can't do much if it's pathLen=1, we don't support edge removal, only node removal
-                return;
+                // delete it
+                //
 
-            // at this point, the last node in "nodes" is the last node of a potential EC.
-            // check if it's connected to something that has in-branching and a out-neighbor. 
-            bool isDoublyConnected = (_graph.outdegree(nodes.back) >= 1 && _graph.indegree(nodes.back) > 1);
-
-            bool isTopologicalEC = isDoublyConnected;
-
-            DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree outdegree: " <<_graph.indegree(node) << " " << _graph.outdegree(node) << "istopotip: " << isTopologicalTip << endl);
-
-            if (isTopologicalEC)
-            {
-                
-#if 0
-                // coverage criterion
-                unsigned long mean_abundance = 0;
+                DEBUG(cout << endl << "BULGE of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
                 for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
                 {
-                    unsigned int abundance = _graph.queryAbundance(node.kmer);
-                    mean_abundance += abundance;
+                    DEBUG(cout << endl << "deleting node " << _graph.toString(*itVecNodes) << endl);
+                    unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
+                    nodesToDelete[index] = true; // parallel version
                 }
 
-                // explore the other two or more simple paths connected to that deadend to get a abundance estimate
-                Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(nodes.back());
-                for (size_t i = 0; i < neighbors.size(); i++)
-                {
-                    Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, neighbors[i].direction);
-                    int pathLen = 0;
-                    vector<Node> simplepath_nodes;
-                    for (itNodes.first(); !itNodes.isDone(); itNodes.next())
-                    {
-                        simplepath_nodes.push_back(*itNodes);
-                        if (pathLen++ >= 100)
-                        {
-                            isShort = false;
-                            break;       
-                        }
-                    }
-                }
-#endif
+                __sync_fetch_and_add(&nbBulgesRemoved, 1);
 
-
-                bool isTip = true; // TODO maybe: (mean_abundance < local_min_abundance); but in fact, we didn't use that in legacyTraversal. maybe it's a mistake.
-
-
-                if (isTip)
-                {
-                    // delete it
-                    //
-
-                    //DEBUG(cout << endl << "TIP of length " << pathLen << " FOUND: " <<  _graph.toString (node) << endl);
-                    for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
-                    {
-                        //DEBUG(cout << endl << "deleting tip node: " <<  _graph.toString (*itVecNodes) << endl);
-                        //_graph.deleteNode(*itVecNodes); // sequential version
-                        
-                        unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
-                        nodesToDelete[index] = true; // parallel version
-                    }
-
-                    __sync_fetch_and_add(&nbTipsRemoved, 1);
-                    
-                }
-            }
-        }
-    // } // sequential
+            } // for neighbors
+        } // if outdegree
+      } // for direction
+            // } // sequential
     }); // parallel
 
     // now delete all nodes, in sequential (shouldn't take long)
@@ -868,7 +863,6 @@ unsigned long GraphSimplification::removeErroneousConnections()
     }
 
 
-    return nbTipsRemoved;
+    return nbBulgesRemoved;
 }
 
-#endif
