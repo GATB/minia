@@ -22,11 +22,16 @@
 /********************************************************************************/
 
 #define DEBUG(a)   //a
+#define TIME(a)   a
 
 #include <vector>
 #include <set>
 #include <stack>
+#include <chrono>
 #include <GraphSimplification.hpp>
+
+#define get_wtime() chrono::system_clock::now()
+#define diff_wtime(x,y) (unsigned long)chrono::duration_cast<chrono::nanoseconds>(y - x).count()
 
 using namespace std;
 
@@ -290,17 +295,18 @@ unsigned long GraphSimplification::removeTips()
 /* note: the returned mean abundance does not include start and end nodes */
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
-        int traversal_depth, bool& success, double &abundance, bool most_covered)
+        int traversal_depth, bool& success, double &abundance, bool most_covered, bool backtracking, Node *avoidFirstNode)
 {
     set<Node::Value> usedNode;
     usedNode.insert(startNode.kmer);
     Path current_path;
     current_path.start = startNode;
-    success = true;
+    success = false;
     vector<int> abundances; 
+    unsigned long nbCalls = 0;
 
-    Path res = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth, current_path, usedNode, success, abundances, most_covered);
-
+    Path res = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth, current_path, usedNode, success, abundances, most_covered,
+            backtracking, avoidFirstNode, nbCalls);
 
     abundance = 0;
     for (unsigned int i = 0; i < abundances.size(); i++){
@@ -316,14 +322,20 @@ Path GraphSimplification::heuristic_most_covered_path(
         cout << ";"<<endl;
     }
 
+    bool debug_nbcalls = false;
+    if (debug_nbcalls)
+        cout << "number of path-finding calls: " << nbCalls << endl;
+
     return res;
 }
         
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
-        int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered)
+        int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
+        bool backtracking, Node *avoidFirstNode, unsigned long &nbCalls)
 {
     // inspired by all_consensuses_between
+    nbCalls++;
 
     if (traversal_depth < -1)
     {
@@ -333,6 +345,7 @@ Path GraphSimplification::heuristic_most_covered_path(
 
     if (startNode.kmer == endNode.kmer)
     {
+        success = true;
         return current_path;
     }
 
@@ -344,6 +357,9 @@ Path GraphSimplification::heuristic_most_covered_path(
     {
         /** Shortcut. */
         Edge& edge = neighbors[i];
+
+        if (avoidFirstNode != NULL && edge.to.kmer == avoidFirstNode->kmer)
+            continue;
 
         // don't resolve bubbles containing loops
         // (tandem repeats make things more complicated)
@@ -390,10 +406,13 @@ Path GraphSimplification::heuristic_most_covered_path(
             extended_kmers,
             success,
             extended_abundances,
-            most_covered
+            most_covered,
+            backtracking,
+            NULL, // no longer avoid nodes
+            nbCalls
         );
 
-        if (success)
+        if (success ||(!backtracking)) // on success or if backtracking is disallowed, return immediately, don't backtrack
         {
             abundances = extended_abundances;
             return new_path; 
@@ -719,7 +738,11 @@ unsigned long GraphSimplification::removeBubbles()
 }
 
 
-// in progress
+/* bulge removal algorithm. mimics spades, which doesnt remove bubbles, but only bulges. looks as effective.
+ * it's slow to do heuristic_find_most_covered path so i'm testing it with no backtracking
+ *
+ * see a-b-c here for an explanation of bulge removal: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791033/figure/f4/
+ */ 
 unsigned long GraphSimplification::removeBulges()
 {
     unsigned int k = _graph.getKmerSize();
@@ -727,7 +750,22 @@ unsigned long GraphSimplification::removeBulges()
     unsigned int additive_coeff = 100;
     unsigned int maxBulgeLength = std::max((unsigned int)((double)k * coeff), (unsigned int)(k + additive_coeff)); // SPAdes, exactly
 
+    // stats
+    //
     unsigned long nbBulgesRemoved = 0;
+    unsigned long nbSimplePaths = 0;
+    unsigned long nbLongSimplePaths = 0;
+    unsigned long nbShortSimplePaths = 0;
+    unsigned long nbTopologicalBulges = 0;
+    unsigned long nbFirstNodeDeleted = 0;
+    unsigned long nbFirstNodeGraphDeleted = 0;
+    unsigned long nbNoAltPathBulges = 0;
+    unsigned long nbBadCovBulges = 0;
+
+    unsigned long timeAll = 0, timePathFinding = 0, timeFailedPathFinding = 0, timeLongestFailure = 0,
+                  timeSimplePath = 0, timeDelete = 0, timePost = 0, timeVarious = 0;
+
+    unsigned long longestFailureDepth = 0;
 
     /** We get an iterator over all nodes . */
     char buffer[128];
@@ -747,11 +785,16 @@ unsigned long GraphSimplification::removeBulges()
 
     dispatcher.iterate (itNode, [&] (Node& node)
     {
+
+    auto start_thread_t=get_wtime();
+
+
       // need to search in both directions
       for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
       {
          if ((_graph.outdegree(node) >= 2 && dir == DIR_OUTCOMING) || (_graph.indegree(node) >= 2 && dir == DIR_INCOMING))
          {
+            TIME(auto start_various_overhead_t=get_wtime());
             unsigned long index =_graph.nodeMPHFIndex(node);
             if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
             if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
@@ -760,6 +803,8 @@ unsigned long GraphSimplification::removeBulges()
 
             /** We follow the outgoing simple paths to get their length and last neighbor */
             Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node, dir);
+            TIME(auto end_various_overhead_t=get_wtime());
+            TIME(__sync_fetch_and_add(&timeVarious, diff_wtime(start_various_overhead_t,end_various_overhead_t)));
 
             // do everying for each possible short simple path that is neighbor of that node
             for (unsigned int i = 0; i < neighbors.size(); i++)
@@ -767,11 +812,20 @@ unsigned long GraphSimplification::removeBulges()
                 vector<Node> nodes;
                 bool foundShortPath = false;
                 unsigned int pathLen = 0;
-
+            
+                TIME(auto start_various_overhead_t=get_wtime());
                 unsigned long index =_graph.nodeMPHFIndex(neighbors[i].to);
-                if (_graph.isNodeDeleted(index)) { continue;}
-                if (nodesToDelete[index]) { continue;}
+                if (_graph.isNodeDeleted(index)) { 
+                     __sync_fetch_and_add(&nbFirstNodeGraphDeleted, 1);
+                    continue;}
+                if (nodesToDelete[index]) { 
+                     __sync_fetch_and_add(&nbFirstNodeDeleted, 1);
+                    continue;}
 
+                TIME(auto end_various_overhead_t=get_wtime());
+                TIME(__sync_fetch_and_add(&timeVarious, diff_wtime(start_various_overhead_t,end_various_overhead_t)));
+
+                TIME(auto start_simplepath_t=get_wtime());
                 Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, dir);
                 DEBUG(cout << endl << "neighbors " << i << "/" << neighbors.size() << " from: " << _graph.toString (neighbors[i].to) << " dir: " << dir << endl);
                 bool isShort = true;
@@ -782,17 +836,22 @@ unsigned long GraphSimplification::removeBulges()
                     nodes.push_back(*itNodes);
                     if (k + pathLen++ >= maxBulgeLength) // "k +" is to take into account that's we're actually traversing a path of extensions from "node"
                     {
+                        __sync_fetch_and_add(&nbLongSimplePaths, 1);
                         isShort = false;
                         break;       
                     }
                 }
+                TIME(auto end_simplepath_t=get_wtime());
+                TIME(__sync_fetch_and_add(&timeSimplePath, diff_wtime(start_simplepath_t,end_simplepath_t)));
+
+                __sync_fetch_and_add(&nbSimplePaths, 1);
 
                 if (!isShort || pathLen == 0) // can't do much if it's pathLen=0, we don't support edge removal, only node removal
                     continue;
+                
+                __sync_fetch_and_add(&nbShortSimplePaths, 1);
 
-                index =_graph.nodeMPHFIndex(nodes.back());
-                if (nodesToDelete[index]) { continue;}
-
+                TIME(start_various_overhead_t=get_wtime());
                 Graph::Vector<Edge> outneighbors = _graph.neighbors<Edge>(nodes.back(), dir);
                 Node endNode = outneighbors[0].to;
 
@@ -806,17 +865,38 @@ unsigned long GraphSimplification::removeBulges()
 
                 DEBUG(cout << endl << "pathlen: " << pathLen << " last node neighbors size: " << _graph.neighbors<Edge>(nodes.back()).size() << " indegree/outdegree: " <<_graph.indegree(nodes.back()) << "/" << _graph.outdegree(nodes.back()) << " istopobulge: " << isTopologicalBulge << endl);
 
+                TIME(end_various_overhead_t=get_wtime());
+                TIME(__sync_fetch_and_add(&timeVarious, diff_wtime(start_various_overhead_t,end_various_overhead_t)));
+
                 if (!isTopologicalBulge)
                     continue;
+
+                __sync_fetch_and_add(&nbTopologicalBulges, 1);
 
                 unsigned int depth = std::max((unsigned int)(pathLen * 1.1),(unsigned int) 3); // following SPAdes
                 double mean_abundance_most_covered;
                 bool success;
                 Node startNode = node;
-                Path heuristic_p_most = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_most_covered);
+
+                TIME(auto start_pathfinding_t=get_wtime());
+
+                Path heuristic_p_most = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_most_covered,
+                        true, // most covered
+                        false, // avoid backtracking
+                        &(neighbors[i].to) // avoid that node
+                        );
+
+                TIME(auto end_pathfinding_t=get_wtime());
+                TIME(__sync_fetch_and_add(&timePathFinding, diff_wtime(start_pathfinding_t,end_pathfinding_t)));
+                TIME(auto start_post_t=get_wtime());
 
                 if (!success)
+                {
+                    TIME(__sync_fetch_and_add(&timeFailedPathFinding, diff_wtime(start_pathfinding_t,end_pathfinding_t)));
+                    TIME(if (diff_wtime(start_pathfinding_t,end_pathfinding_t) > timeLongestFailure) { timeLongestFailure = diff_wtime(start_pathfinding_t,end_pathfinding_t); longestFailureDepth = depth;});
+                    __sync_fetch_and_add(&nbNoAltPathBulges, 1);
                     continue;
+                }
 
                 DEBUG(cout << endl << "alternative path is:  "<< path2string(dir, heuristic_p_most, endNode)<< " abundance: "<< mean_abundance_most_covered <<endl);
 
@@ -839,6 +919,7 @@ unsigned long GraphSimplification::removeBulges()
 
                 if (!isBulge)
                 {
+                    __sync_fetch_and_add(&nbBadCovBulges, 1);
                     DEBUG(cout << endl << "not a bulge due to similar coverage" << endl);
                     continue;
                 }
@@ -855,14 +936,19 @@ unsigned long GraphSimplification::removeBulges()
                 }
 
                 __sync_fetch_and_add(&nbBulgesRemoved, 1);
+                TIME(auto end_post_t=get_wtime());
+                TIME(__sync_fetch_and_add(&timePost, diff_wtime(start_post_t,end_post_t)));
 
             } // for neighbors
         } // if outdegree
       } // for direction
             // } // sequential
+        TIME(auto end_thread_t=get_wtime());
+        TIME(__sync_fetch_and_add(&timeAll, diff_wtime(start_thread_t,end_thread_t)));
     }); // parallel
-
+    
     // now delete all nodes, in sequential (shouldn't take long)
+    TIME(auto start_nodedelete_t=get_wtime());
     for (unsigned long i = 0; i < nbNodes; i++)
     {
         if (nodesToDelete[i])
@@ -870,7 +956,22 @@ unsigned long GraphSimplification::removeBulges()
            _graph.deleteNode(i);
         }
     }
+    TIME(auto end_nodedelete_t=get_wtime());
+    TIME(__sync_fetch_and_add(&timeDelete, diff_wtime(start_nodedelete_t,end_nodedelete_t)));
 
+    cout << nbBulgesRemoved << " bulges removed. " << endl <<
+        nbSimplePaths << "/" << nbLongSimplePaths << "+" <<nbShortSimplePaths << " any=long+short simple path examined across all threads, among them " <<
+        nbTopologicalBulges << " topological bulges, " << nbFirstNodeDeleted << "+" << nbFirstNodeGraphDeleted << " were first-node duplicates." << endl;
+    cout << nbNoAltPathBulges << " without alt. path, " << nbBadCovBulges << " didn't satisfy cov. criterion." << endl;
+
+    double unit = 1000000000;
+    cout.setf(ios_base::fixed);
+    cout.precision(1);
+    TIME(cout << "Timings: " << timeAll / unit << " CPUsecs total."<< endl);
+    TIME(cout << "         " << timeSimplePath / unit << " CPUsecs simple path traversal." << endl);
+    TIME(cout << "         " << timePathFinding / unit << "(/" << timePathFinding / unit << ") CPUsecs path-finding(/failed). Longest: " << timeLongestFailure / unit << " CPUsecs (depth " << longestFailureDepth << ")." << endl);
+    TIME(cout << "         " << timePost / unit << " CPUsecs topological bulge processing, " << timeDelete / unit << " CPUsecs nodes deletion." << endl);
+    TIME(cout << "         " << timeVarious / unit << " CPUsecs various overhead." << endl);
 
     return nbBulgesRemoved;
 }

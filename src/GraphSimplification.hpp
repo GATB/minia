@@ -52,9 +52,11 @@ protected:
     string path2string(Direction dir, Path p, Node endNode);
 
     Path heuristic_most_covered_path(Direction dir, const Node startingNode, const Node endingNode, 
-                                    int traversal_depth, bool& success, double& mean_abundance, bool most_covered = true);
+                                    int traversal_depth, bool& success, double& mean_abundance, bool most_covered = true,
+                                    bool backtracking = true, Node *avoidFirstNode = NULL);
     Path heuristic_most_covered_path(Direction dir, const Node startingNode, const Node endingNode, 
-                                    int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered);
+                                    int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
+                                    bool backtracking, Node *avoidFirstNode, unsigned long &nbCalls);
 };
 
 /********************************************************************************/
