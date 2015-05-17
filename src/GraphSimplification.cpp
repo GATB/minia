@@ -786,8 +786,7 @@ unsigned long GraphSimplification::removeBulges()
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
-    auto start_thread_t=get_wtime();
-
+      TIME(auto start_thread_t=get_wtime());
 
       // need to search in both directions
       for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
@@ -969,7 +968,7 @@ unsigned long GraphSimplification::removeBulges()
     cout.precision(1);
     TIME(cout << "Timings: " << timeAll / unit << " CPUsecs total."<< endl);
     TIME(cout << "         " << timeSimplePath / unit << " CPUsecs simple path traversal." << endl);
-    TIME(cout << "         " << timePathFinding / unit << "(/" << timePathFinding / unit << ") CPUsecs path-finding(/failed). Longest: " << timeLongestFailure / unit << " CPUsecs (depth " << longestFailureDepth << ")." << endl);
+    TIME(cout << "         " << timePathFinding / unit << "(/" << timePathFinding / unit << ") CPUsecs path-finding(/failed). Longest: " << timeLongestFailure / (unit/1000) << " CPUmillisecs (depth " << longestFailureDepth << ")." << endl);
     TIME(cout << "         " << timePost / unit << " CPUsecs topological bulge processing, " << timeDelete / unit << " CPUsecs nodes deletion." << endl);
     TIME(cout << "         " << timeVarious / unit << " CPUsecs various overhead." << endl);
 
