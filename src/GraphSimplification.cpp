@@ -295,7 +295,8 @@ unsigned long GraphSimplification::removeTips()
 /* note: the returned mean abundance does not include start and end nodes */
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
-        int traversal_depth, bool& success, double &abundance, bool most_covered, bool backtracking, Node *avoidFirstNode)
+        int traversal_depth, bool& success, double &abundance, bool most_covered, 
+        unsigned int backtrackingLimit, Node *avoidFirstNode)
 {
     set<Node::Value> usedNode;
     usedNode.insert(startNode.kmer);
@@ -306,7 +307,7 @@ Path GraphSimplification::heuristic_most_covered_path(
     unsigned long nbCalls = 0;
 
     Path res = heuristic_most_covered_path(dir, startNode, endNode, traversal_depth, current_path, usedNode, success, abundances, most_covered,
-            backtracking, avoidFirstNode, nbCalls);
+            backtrackingLimit, avoidFirstNode, nbCalls);
 
     abundance = 0;
     for (unsigned int i = 0; i < abundances.size(); i++){
@@ -332,11 +333,11 @@ Path GraphSimplification::heuristic_most_covered_path(
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
         int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
-        bool backtracking, Node *avoidFirstNode, unsigned long &nbCalls)
+        unsigned int backtrackingLimit, Node *avoidFirstNode, unsigned long &nbCalls)
 {
     // inspired by all_consensuses_between
     nbCalls++;
-
+    
     if (traversal_depth < -1)
     {
         success = false;
@@ -407,12 +408,12 @@ Path GraphSimplification::heuristic_most_covered_path(
             success,
             extended_abundances,
             most_covered,
-            backtracking,
+            backtrackingLimit,
             NULL, // no longer avoid nodes
             nbCalls
         );
 
-        if (success ||(!backtracking)) // on success or if backtracking is disallowed, return immediately, don't backtrack
+        if (success || (backtrackingLimit > 0 && nbCalls >= backtrackingLimit)) // on success or if no more backtracking, return immediately
         {
             abundances = extended_abundances;
             return new_path; 
@@ -750,6 +751,8 @@ unsigned long GraphSimplification::removeBulges()
     unsigned int additive_coeff = 100;
     unsigned int maxBulgeLength = std::max((unsigned int)((double)k * coeff), (unsigned int)(k + additive_coeff)); // SPAdes, exactly
 
+    unsigned int backtrackingLimit = maxBulgeLength*4; // arbitrary
+
     // stats
     //
     unsigned long nbBulgesRemoved = 0;
@@ -881,7 +884,7 @@ unsigned long GraphSimplification::removeBulges()
 
                 Path heuristic_p_most = heuristic_most_covered_path(dir, startNode, endNode, depth+2, success, mean_abundance_most_covered,
                         true, // most covered
-                        false, // avoid backtracking
+                        backtrackingLimit, // avoid backtracking
                         &(neighbors[i].to) // avoid that node
                         );
 
@@ -974,4 +977,4 @@ unsigned long GraphSimplification::removeBulges()
 
     return nbBulgesRemoved;
 }
-
+:
