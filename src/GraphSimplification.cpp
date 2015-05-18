@@ -977,4 +977,4 @@ unsigned long GraphSimplification::removeBulges()
 
     return nbBulgesRemoved;
 }
-:
+
