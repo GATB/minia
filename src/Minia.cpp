@@ -278,30 +278,38 @@ void Minia::assemble (const Graph& graph)
             int nbCores = getInput()->getInt(STR_NB_CORES);
             GraphSimplification graphSimplification(graph, nbCores);
            
-            unsigned long nbTipsRemoved;
-            unsigned long nbBubblesRemoved;
+            unsigned long nbTipsRemoved = 0, nbTipsRemovedPreviously = 0;
+            unsigned long nbBubblesRemoved = 0, nbBubblesRemovedPreviously = 0;
             do
             {
+                nbTipsRemovedPreviously = nbTipsRemoved;
                 nbTipsRemoved = graphSimplification.removeTips();
                 if (tipRemoval.size() != 0)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
             }
-            while (nbTipsRemoved > 10 && graphSimplification._nbTipRemovalPasses < 20);
+            while ( (nbTipsRemovedPreviously == 0 || nbTipsRemoved * 1.1 < nbTipsRemovedPreviously)
+                    && (nbTipsRemoved >= 10) 
+                    && graphSimplification._nbTipRemovalPasses < 20);
 
             do
             {
+                nbBubblesRemovedPreviously = nbBubblesRemoved;
                 //nbBubblesRemoved = graphSimplification.removeBubbles();
                 nbBubblesRemoved = graphSimplification.removeBulges();
                 if (bubbleRemoval.size() != 0)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while (nbBubblesRemoved >= 10 && graphSimplification._nbBubbleRemovalPasses < 20);
+            while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved * 1.1 < nbBubblesRemovedPreviously)
+                        && (nbBubblesRemoved >= 10) 
+                        && graphSimplification._nbBubbleRemovalPasses < 20);
 
+            nbBubblesRemoved = 0; // reset bubble removal counter
             do
             {
                 nbTipsRemoved = graphSimplification.removeTips();
+                nbBubblesRemovedPreviously = nbBubblesRemoved;
                 //nbBubblesRemoved = graphSimplification.removeBubbles();
                 nbBubblesRemoved = graphSimplification.removeBulges();
                 if (tipRemoval.size() != 0)
@@ -311,7 +319,9 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-           while (nbBubblesRemoved >= 10  && graphSimplification._nbBubbleRemovalPasses < 20);
+           while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved * 1.1 < nbBubblesRemovedPreviously)
+                   && (nbBubblesRemoved >= 10)  
+                   && graphSimplification._nbBubbleRemovalPasses < 20);
         }
 
         /** We loop over all nodes. */
