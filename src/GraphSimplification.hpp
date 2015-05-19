@@ -31,8 +31,7 @@ class GraphSimplification : public SmartPointer
 {
 public:
 
-    GraphSimplification (const Graph& graph, int nbCores)
-        : _nbTipRemovalPasses(0), _nbBubbleRemovalPasses(0), _nbBulgeRemovalPasses(0), _graph(graph), _nbCores(nbCores) {}
+    GraphSimplification (const Graph& graph, int nbCores);
 
     unsigned long removeTips();
     unsigned long removeBubbles();
@@ -48,6 +47,7 @@ public:
 protected:
     const Graph&  _graph;
     int _nbCores;
+    bool _firstNodeIteration;
 
     string path2string(Direction dir, Path p, Node endNode);
 
@@ -57,6 +57,8 @@ protected:
     Path heuristic_most_covered_path(Direction dir, const Node startingNode, const Node endingNode, 
                                     int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
                                     unsigned int backtrackingLimit, Node *avoidFirstNode, unsigned long &nbCalls);
+
+    vector<bool> interestingNodes;
 };
 
 /********************************************************************************/

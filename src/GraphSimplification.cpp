@@ -39,6 +39,21 @@ static const char* progressFormat0 = "removing tips,    pass %2d ";
 static const char* progressFormat1 = "removing bubbles, pass %2d ";
 static const char* progressFormat2 = "removing bulges,  pass %2d ";
 
+GraphSimplification::GraphSimplification(const Graph & graph, int nbCores)
+        : _nbTipRemovalPasses(0), _nbBubbleRemovalPasses(0), _nbBulgeRemovalPasses(0), _graph(graph), 
+        _nbCores(nbCores), _firstNodeIteration(true)
+{
+    // just a way to get number of nodes
+    char buffer[128];
+    ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (_graph.iterator<Node>(), buffer);
+    unsigned long nbNodes = itNode.size();
+
+    interestingNodes.resize(nbNodes); // number of graph nodes // (!) this will alloc 1 bit per kmer.
+    for (unsigned long i = 0; i < nbNodes; i++)
+        interestingNodes[i] = false;
+}
+
+
 double GraphSimplification::getSimplePathCoverage(Node node, Direction dir, unsigned int *pathLenOut, unsigned int maxLength)
 {
     Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (node, dir);
@@ -162,20 +177,32 @@ unsigned long GraphSimplification::removeTips()
     for (unsigned long i = 0; i < nbNodes; i++)
         nodesToDelete[i] = false;
 
+    bool haveInterestingNodesInfo = !_firstNodeIteration;
+    _firstNodeIteration = false;
+
     dispatcher.iterate (itNode, [&] (Node& node)
     {
+        unsigned long index = _graph.nodeMPHFIndex(node);
 
-        unsigned inDegree = _graph.indegree(node), outDegree =  _graph.outdegree(node);
-        if ((inDegree == 0 || outDegree == 0) && (inDegree != 0 || outDegree != 0))
+        if (haveInterestingNodesInfo)
+            if (interestingNodes[index] == false)
+                return; // no point in examining non-branching nodes, saves calls to in/out-degree, i.e. accesses to the minia datastructure
+
+        if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
+        if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
+
+        unsigned inDegree = _graph.indegree(node), outDegree = _graph.outdegree(node);
+
+        if (!haveInterestingNodesInfo)
+            interestingNodes[index] = interestingNodes[index] || (!(inDegree == 1 && outDegree == 1));
+
+        if ((inDegree == 0 || outDegree == 0) && (inDegree == 1 || outDegree == 1))
         {
-            if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
-            if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
-
             //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
             /** We follow the simple path to get its length */
-            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has a single neighbor
-            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction); // .from should be .to but doesn't matter here
+            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has one neighbor in a single direction
+            Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction); //
             //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << " direction: " << neighbors[0].direction << endl);
 
             bool isShortTopological = true;
@@ -227,22 +254,27 @@ unsigned long GraphSimplification::removeTips()
                 double meanTipAbundance = (double)mean_abundance / (double)(nodes.size());
                 double stdevTipAbundance = 0;
 
-                // for debug only, can be disabled to save time
-                for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
+                // get std dev, for debug only
+                bool debugstdev = false;
+                if (debugstdev)
                 {
-                    unsigned int abundance = _graph.queryAbundance((*itVecNodes).kmer);
-                    stdevTipAbundance += pow(fabs(abundance-meanTipAbundance),2);
+                    for (vector<Node>::iterator itVecNodes = nodes.begin(); itVecNodes != nodes.end(); itVecNodes++)
+                    {
+                        unsigned int abundance = _graph.queryAbundance((*itVecNodes).kmer);
+                        stdevTipAbundance += pow(fabs(abundance-meanTipAbundance),2);
+                    }
+                    stdevTipAbundance = sqrt(stdevTipAbundance/nodes.size());
                 }
-                stdevTipAbundance = sqrt(stdevTipAbundance/nodes.size());
-
 
                 // explore the other two or more simple paths connected to that deadend, to get an abundance estimate
-                // but first, get the branching node(s) the tip is connected to (it's weird when it's more than one branching node though)
+                // but first, get the branching node(s) the tip is connected to 
+                // (it's weird when it's more than one branching node though)
                 Graph::Vector<Node> connectedBranchingNodes = _graph.neighbors<Node>(nodes.back(), neighbors[0].direction);
                 unsigned int nbBranchingNodes = 0;
                 double meanNeighborsCoverage = 0;
                 for (size_t j = 0; j < connectedBranchingNodes.size(); j++)
                 {
+
                     meanNeighborsCoverage += getMeanAbundanceOfNeighbors(connectedBranchingNodes[j], nodes.back());
                     nbBranchingNodes++;
                 }
@@ -270,9 +302,20 @@ unsigned long GraphSimplification::removeTips()
 
                     unsigned long index = _graph.nodeMPHFIndex(*itVecNodes); // parallel version
                     nodesToDelete[index] = true; // parallel version
+
                 }
 
+                // update interesting status of connected nodes
+                Graph::Vector<Node> connectedBranchingNodes = _graph.neighbors<Node>(nodes.back());
+                for (size_t j = 0; j < connectedBranchingNodes.size(); j++)
+                {
+                    unsigned long index = _graph.nodeMPHFIndex(connectedBranchingNodes[j]);
+                    interestingNodes[index] = true;
+                }
+
+
                 __sync_fetch_and_add(&nbTipsRemoved, 1);
+
 
             }
         }
@@ -751,7 +794,7 @@ unsigned long GraphSimplification::removeBulges()
     unsigned int additive_coeff = 100;
     unsigned int maxBulgeLength = std::max((unsigned int)((double)k * coeff), (unsigned int)(k + additive_coeff)); // SPAdes, exactly
 
-    unsigned int backtrackingLimit = maxBulgeLength*4; // arbitrary
+    unsigned int backtrackingLimit = maxBulgeLength; // arbitrary
 
     // stats
     //
@@ -786,10 +829,20 @@ unsigned long GraphSimplification::removeBulges()
     for (unsigned long i = 0; i < nbNodes; i++)
         nodesToDelete[i] = false;
 
+    bool haveInterestingNodesInfo = !_firstNodeIteration;
+
     dispatcher.iterate (itNode, [&] (Node& node)
     {
 
       TIME(auto start_thread_t=get_wtime());
+
+      unsigned long index = _graph.nodeMPHFIndex(node);
+
+      // TODO think about cases where bulge suppression could make a node intresting
+    /*  if (haveInterestingNodesInfo)
+          if (interestingNodes[index] == false)
+            return; // no pont in examining non-branching nodes, saves calls to in/out-degree, i.e. accesses to the minia datastructure
+*/
 
       // need to search in both directions
       for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
@@ -797,7 +850,6 @@ unsigned long GraphSimplification::removeBulges()
          if ((_graph.outdegree(node) >= 2 && dir == DIR_OUTCOMING) || (_graph.indegree(node) >= 2 && dir == DIR_INCOMING))
          {
             TIME(auto start_various_overhead_t=get_wtime());
-            unsigned long index =_graph.nodeMPHFIndex(node);
             if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
             if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
 
