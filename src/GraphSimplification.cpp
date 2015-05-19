@@ -335,17 +335,19 @@ unsigned long GraphSimplification::removeTips()
     return nbTipsRemoved;
 }
 
+enum HMCP_Success { HMCP_DEADEND = 0, HMCP_FOUND_END = 1 , HMCP_MAX_DEPTH = -1, HMCP_LOOP = - 2};
+
 /* note: the returned mean abundance does not include start and end nodes */
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
-        int traversal_depth, bool& success, double &abundance, bool most_covered, 
+        int traversal_depth, int& success, double &abundance, bool most_covered, 
         unsigned int backtrackingLimit, Node *avoidFirstNode)
 {
     set<Node::Value> usedNode;
     usedNode.insert(startNode.kmer);
     Path current_path;
     current_path.start = startNode;
-    success = false;
+    success = HMCP_DEADEND;
     vector<int> abundances; 
     unsigned long nbCalls = 0;
 
@@ -375,7 +377,7 @@ Path GraphSimplification::heuristic_most_covered_path(
         
 Path GraphSimplification::heuristic_most_covered_path(
         Direction dir, const Node startNode, const Node endNode, 
-        int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
+        int traversal_depth, Path current_path, set<Node::Value> usedNode, int& success, vector<int>& abundances, bool most_covered,
         unsigned int backtrackingLimit, Node *avoidFirstNode, unsigned long &nbCalls)
 {
     // inspired by all_consensuses_between
@@ -383,13 +385,13 @@ Path GraphSimplification::heuristic_most_covered_path(
     
     if (traversal_depth < -1)
     {
-        success = false;
+        success = HMCP_MAX_DEPTH;
         return current_path;
     }
 
     if (startNode.kmer == endNode.kmer)
     {
-        success = true;
+        success = 1;
         return current_path;
     }
 
@@ -410,7 +412,7 @@ Path GraphSimplification::heuristic_most_covered_path(
         // that's a job for a gapfiller
         if (usedNode.find(edge.to.kmer) != usedNode.end())
         {
-            success = false;
+            success = -2;
             return current_path;
         }
 
@@ -456,7 +458,7 @@ Path GraphSimplification::heuristic_most_covered_path(
             nbCalls
         );
 
-        if (success || (backtrackingLimit > 0 && nbCalls >= backtrackingLimit)) // on success or if no more backtracking, return immediately
+        if ((success == 1)|| (backtrackingLimit > 0 && nbCalls >= backtrackingLimit)) // on success or if no more backtracking, return immediately
         {
             abundances = extended_abundances;
             return new_path; 
@@ -634,7 +636,7 @@ unsigned long GraphSimplification::removeBubbles()
         Node endNode = frontline.front().node;
         int traversal_depth = frontline.depth();
 
-        bool success;
+        int success;
 
         // not exploring all consensuses anymore, instead, we'll greedily search directly for the most abundant one
         // hope that it will be faster.
@@ -805,7 +807,7 @@ unsigned long GraphSimplification::removeBulges()
     unsigned long nbTopologicalBulges = 0;
     unsigned long nbFirstNodeDeleted = 0;
     unsigned long nbFirstNodeGraphDeleted = 0;
-    unsigned long nbNoAltPathBulges = 0;
+    unsigned long nbNoAltPathBulgesLoop = 0, nbNoAltPathBulgesDepth = 0,nbNoAltPathBulgesDeadend = 0;
     unsigned long nbBadCovBulges = 0;
 
     unsigned long timeAll = 0, timePathFinding = 0, timeFailedPathFinding = 0, timeLongestFailure = 0,
@@ -929,7 +931,7 @@ unsigned long GraphSimplification::removeBulges()
 
                 unsigned int depth = std::max((unsigned int)(pathLen * 1.1),(unsigned int) 3); // following SPAdes
                 double mean_abundance_most_covered;
-                bool success;
+                int success;
                 Node startNode = node;
 
                 TIME(auto start_pathfinding_t=get_wtime());
@@ -944,11 +946,17 @@ unsigned long GraphSimplification::removeBulges()
                 TIME(__sync_fetch_and_add(&timePathFinding, diff_wtime(start_pathfinding_t,end_pathfinding_t)));
                 TIME(auto start_post_t=get_wtime());
 
-                if (!success)
+                if (success != 1)
                 {
                     TIME(__sync_fetch_and_add(&timeFailedPathFinding, diff_wtime(start_pathfinding_t,end_pathfinding_t)));
                     TIME(if (diff_wtime(start_pathfinding_t,end_pathfinding_t) > timeLongestFailure) { timeLongestFailure = diff_wtime(start_pathfinding_t,end_pathfinding_t); longestFailureDepth = depth;});
-                    __sync_fetch_and_add(&nbNoAltPathBulges, 1);
+
+                    if (success == -2)
+                        __sync_fetch_and_add(&nbNoAltPathBulgesLoop, 1);
+                    if (success == -1)
+                         __sync_fetch_and_add(&nbNoAltPathBulgesDepth, 1);
+                    if (success == 0)
+                         __sync_fetch_and_add(&nbNoAltPathBulgesDeadend, 1);
                     continue;
                 }
 
@@ -1016,7 +1024,8 @@ unsigned long GraphSimplification::removeBulges()
     cout << nbBulgesRemoved << " bulges removed. " << endl <<
         nbSimplePaths << "/" << nbLongSimplePaths << "+" <<nbShortSimplePaths << " any=long+short simple path examined across all threads, among them " <<
         nbTopologicalBulges << " topological bulges, " << nbFirstNodeDeleted << "+" << nbFirstNodeGraphDeleted << " were first-node duplicates." << endl;
-    cout << nbNoAltPathBulges << " without alt. path, " << nbBadCovBulges << " didn't satisfy cov. criterion." << endl;
+    cout << nbNoAltPathBulgesDepth << "+" << nbNoAltPathBulgesLoop << "+" << nbNoAltPathBulgesDeadend << " without alt. path (complex+loop+deadend), " 
+    << nbBadCovBulges << " didn't satisfy cov. criterion." << endl;
 
     double unit = 1000000000;
     cout.setf(ios_base::fixed);

@@ -26,6 +26,7 @@
 
 /********************************************************************************/
 
+
 /** */
 class GraphSimplification : public SmartPointer
 {
@@ -52,10 +53,10 @@ protected:
     string path2string(Direction dir, Path p, Node endNode);
 
     Path heuristic_most_covered_path(Direction dir, const Node startingNode, const Node endingNode, 
-                                    int traversal_depth, bool& success, double& mean_abundance, bool most_covered = true,
+                                    int traversal_depth, int& success, double& mean_abundance, bool most_covered = true,
                                     unsigned int backtrackingLimit = 0, Node *avoidFirstNode = NULL);
     Path heuristic_most_covered_path(Direction dir, const Node startingNode, const Node endingNode, 
-                                    int traversal_depth, Path current_path, set<Node::Value> usedNode, bool& success, vector<int>& abundances, bool most_covered,
+                                    int traversal_depth, Path current_path, set<Node::Value> usedNode, int& success, vector<int>& abundances, bool most_covered,
                                     unsigned int backtrackingLimit, Node *avoidFirstNode, unsigned long &nbCalls);
 
     vector<bool> interestingNodes;
