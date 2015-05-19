@@ -44,10 +44,11 @@ public:
     int _nbTipRemovalPasses;
     int _nbBubbleRemovalPasses;
     int _nbBulgeRemovalPasses;
-
+    
 protected:
     const Graph&  _graph;
     int _nbCores;
+
     bool _firstNodeIteration;
 
     string path2string(Direction dir, Path p, Node endNode);

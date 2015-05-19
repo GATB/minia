@@ -196,12 +196,12 @@ unsigned long GraphSimplification::removeTips()
         if (!haveInterestingNodesInfo)
             interestingNodes[index] = interestingNodes[index] || (!(inDegree == 1 && outDegree == 1));
 
-        if ((inDegree == 0 || outDegree == 0) && (inDegree == 1 || outDegree == 1))
+        if ((inDegree == 0 || outDegree == 0) && (inDegree != 0 || outDegree != 0))
         {
             //DEBUG(cout << endl << "deadend node: " << _graph.toString (node) << endl);
 
             /** We follow the simple path to get its length */
-            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has one neighbor in a single direction
+            Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(node.kmer); // so, it has one or more neighbors in a single direction
             Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[0].from, neighbors[0].direction); //
             //DEBUG(cout << endl << "neighbors from: " << _graph.toString (neighbors[0].from) << " direction: " << neighbors[0].direction << endl);
 
