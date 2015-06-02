@@ -195,7 +195,7 @@ void Minia::assemble (const Graph& graph)
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    bool hasMphf = (graph.getState() & Graph::STATE_MPHF_DONE);
+    hasMphf = (graph.getState() & Graph::STATE_MPHF_DONE);
     bool legacyTraversal = !hasMphf;
 
     Terminator *terminator;
@@ -434,18 +434,21 @@ void Minia::buildSequence (
 
     // get coverage
     double coverage = 0;
-    for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
+    if (hasMphf)
     {
-        // taken from Traversal.cpp (might be good to factorize into something like getCoverage(string))
-        Node node = graph.buildNode((char *)(sequence.c_str()), i); 
-        /* I know that buildNode was supposed to be used for test purpose only,
-         * but couldn't find anything else to transform my substring into a kmer */
+        for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
+        {
+            // taken from Traversal.cpp (might be good to factorize into something like getCoverage(string))
+            Node node = graph.buildNode((char *)(sequence.c_str()), i); 
+            /* I know that buildNode was supposed to be used for test purpose only,
+             * but couldn't find anything else to transform my substring into a kmer */
 
-        unsigned char abundance = graph.queryAbundance(node.kmer);
-        coverage += (unsigned int)abundance;
+            unsigned char abundance = graph.queryAbundance(node.kmer);
+            coverage += (unsigned int)abundance;
 
+        }
+        coverage /= length - graph.getKmerSize() + 1;
     }
-    coverage /= length - graph.getKmerSize() + 1;
 
     /** We set the sequence comment. */
     stringstream ss1;

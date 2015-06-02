@@ -1,6 +1,6 @@
 /*****************************************************************************
  *   GATB : Genome Assembly Tool Box
- *   Copyright (C) 2014  INRIA
+ *   Copyright (C) 2014-2015  INRIA
  *   Authors: R.Chikhi, G.Rizk, D.Lavenier, E.Drezen
  *
  *  This program is free software: you can redistribute it and/or modify
