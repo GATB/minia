@@ -69,8 +69,7 @@ Minia::Minia () : Tool ("minia")
 	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
 	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= max(2k, 150 bp)) isolated output sequences", false));
-	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed)",   false));
-	assemblyParser->push_front (new OptionOneParam (STR_URI_GRAPH,       "input graph file (hdf5)",                false));
+	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed) or hdf5 file",   false));
 
     getParser()->push_back (assemblyParser);
 
@@ -101,17 +100,13 @@ void Minia::execute ()
     // graph to not construct branching nodes in the event of mphf != none
     if (getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
 
-	if (getInput()->get(STR_URI_GRAPH) != 0)
-	{
-		graph = Graph::load (getInput()->getStr(STR_URI_GRAPH));
-	}
-	else if (getInput()->get(STR_URI_INPUT) != 0)
+	if (getInput()->get(STR_URI_INPUT) != 0)
     {
         graph = Graph::create (getInput());
     }
     else
     {
-        throw OptionFailure (getParser(), "Specifiy -graph or -in");
+        throw OptionFailure (getParser(), "Specifiy -in");
 	}
 
     /** We build the contigs. */
@@ -176,10 +171,7 @@ void Minia::assemble (const Graph& graph)
 
     string output = (getInput()->get(STR_URI_OUTPUT) ?
         getInput()->getStr(STR_URI_OUTPUT) :
-        System::file().getBaseName (
-		  (getInput()->get(STR_URI_INPUT) ? getInput()->getStr(STR_URI_INPUT) : 
-		   getInput()->getStr(STR_URI_GRAPH))
-                                   ) 
+        System::file().getBaseName (getInput()->getStr(STR_URI_INPUT)) 
                     )+ ".contigs.fa";
 
     /** We setup default values if needed. */
