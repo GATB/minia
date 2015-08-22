@@ -881,6 +881,7 @@ unsigned long GraphSimplification::removeBulges()
                 TIME(auto end_various_overhead_t=get_wtime());
                 TIME(__sync_fetch_and_add(&timeVarious, diff_wtime(start_various_overhead_t,end_various_overhead_t)));
 
+                /* explore the simple path from that node */
                 TIME(auto start_simplepath_t=get_wtime());
                 Graph::Iterator <Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, dir);
                 DEBUG(cout << endl << "neighbors " << i << "/" << neighbors.size() << " from: " << _graph.toString (neighbors[i].to) << " dir: " << dir << endl);
@@ -909,9 +910,13 @@ unsigned long GraphSimplification::removeBulges()
 
                 TIME(start_various_overhead_t=get_wtime());
                 Graph::Vector<Edge> outneighbors = _graph.neighbors<Edge>(nodes.back(), dir);
-                Node endNode = outneighbors[0].to;
-
                 DEBUG(cout << endl << "last simple path node: "<< _graph.toString(nodes.back()) << " has " << outneighbors.size() << " outneighbors" << endl);
+
+                if (outneighbors.size() == 0) // might still be a tip, unremoved for some reason
+                    continue;
+
+                Node endNode = outneighbors[0].to;
+                DEBUG(cout << endl << "endNode" << _graph.toString(endNode) << endl);
 
                 // at this point, the last node in "nodes" is the last node of a potential Bulge path, and endNode is hopefully a branching node right after.
                 // check if it's connected to something that has in-branching. 
