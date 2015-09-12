@@ -35,8 +35,8 @@ public:
     GraphSimplification (const Graph& graph, int nbCores);
 
     unsigned long removeTips();
-    unsigned long removeBubbles();
     unsigned long removeBulges();
+    unsigned long removeErroneousConnections();
 
     double getSimplePathCoverage(Node node, Direction dir, unsigned int* pathLen = NULL, unsigned int maxLength = 0);
     double getMeanAbundanceOfNeighbors(Node branchingNode, Node nodeToExclude);
@@ -44,6 +44,7 @@ public:
     int _nbTipRemovalPasses;
     int _nbBubbleRemovalPasses;
     int _nbBulgeRemovalPasses;
+    int _nbECRemovalPasses;
     
 protected:
     const Graph&  _graph;

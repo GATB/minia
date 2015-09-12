@@ -206,6 +206,7 @@ void Minia::assemble (const Graph& graph)
         
         traversalKind = getInput()->getStr(STR_TRAVERSAL_KIND);
     }
+    /* New Minia traversal mode: use MPHF to mark visited nodes. output all unitigs of simplified graph. doesn't care about -starter option */
     else
     {
         terminator = new MPHFTerminator(graph);
@@ -235,7 +236,7 @@ void Minia::assemble (const Graph& graph)
 
     keepIsolatedTigs = getParser()->saw(STR_KEEP_ISOLATED);
 
-    string tipRemoval = "", bubbleRemoval = "";
+    string tipRemoval = "", bubbleRemoval = "", ECRemoval = "";
 
     if (legacyTraversal)
     {
@@ -272,6 +273,8 @@ void Minia::assemble (const Graph& graph)
            
             unsigned long nbTipsRemoved = 0, nbTipsRemovedPreviously = 0;
             unsigned long nbBubblesRemoved = 0, nbBubblesRemovedPreviously = 0;
+            unsigned long nbECRemoved = 0, nbECRemovedPreviously = 0;
+
             do
             {
                 nbTipsRemovedPreviously = nbTipsRemoved;
@@ -287,8 +290,7 @@ void Minia::assemble (const Graph& graph)
             do
             {
                 nbBubblesRemovedPreviously = nbBubblesRemoved;
-                //nbBubblesRemoved = graphSimplification.removeBubbles();
-                nbBubblesRemoved = graphSimplification.removeBulges();
+                nbBubblesRemoved = graphSimplification.removeBulges(); // now we're using bulges removal, not bubbles (to follow SPAdes)
                 if (bubbleRemoval.size() != 0)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
@@ -297,19 +299,35 @@ void Minia::assemble (const Graph& graph)
                         && (nbBubblesRemoved >= 10) 
                         && graphSimplification._nbBubbleRemovalPasses < 20);
 
+            do
+            {
+                nbECRemovedPreviously = nbECRemoved;
+                nbECRemoved = graphSimplification.removeErroneousConnections(); // now we're using bulges removal, not bubbles (to follow SPAdes)
+                if (ECRemoval.size() != 0)
+                    ECRemoval += " + ";
+                ECRemoval += std::to_string(nbECRemoved);
+            }
+            while ((nbECRemovedPreviously == 0 || nbECRemoved * 1.1 < nbECRemovedPreviously)
+                        && (nbECRemoved >= 10) 
+                        && graphSimplification._nbECRemovalPasses < 10);
+
+
             nbBubblesRemoved = 0; // reset bubble removal counter
             do
             {
                 nbTipsRemoved = graphSimplification.removeTips();
                 nbBubblesRemovedPreviously = nbBubblesRemoved;
-                //nbBubblesRemoved = graphSimplification.removeBubbles();
                 nbBubblesRemoved = graphSimplification.removeBulges();
+                nbECRemoved = graphSimplification.removeErroneousConnections();
                 if (tipRemoval.size() != 0)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
                 if (bubbleRemoval.size() != 0)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
+                if (ECRemoval.size() != 0)
+                    ECRemoval += " + ";
+                ECRemoval += std::to_string(nbECRemoved);
             }
            while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved * 1.1 < nbBubblesRemovedPreviously)
                    && (nbBubblesRemoved >= 10)  
@@ -365,6 +383,7 @@ void Minia::assemble (const Graph& graph)
         getInfo()->add (2, "graph simpification stats");
         getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
         getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
+        getInfo()->add (3, "EC removed",          "%s", ECRemoval.c_str());
         getInfo()->add (2, "assembly traversal stats");
         getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
         getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
