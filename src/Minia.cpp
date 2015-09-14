@@ -323,16 +323,10 @@ void Minia::assemble (const Graph& graph)
                 nbECRemovedPreviously = nbECRemoved;
                 nbECRemoved = graphSimplification.removeErroneousConnections();
 
-                if (tipRemoval.size() != 0)
-                    tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
 
-                if (bubbleRemoval.size() != 0)
-                    bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
 
-                if (ECRemoval.size() != 0)
-                    ECRemoval += " + ";
                 ECRemoval += std::to_string(nbECRemoved);
             }
            while ((nbECRemovedPreviously == 0 || nbECRemoved * 1.1 < nbECRemovedPreviously)
