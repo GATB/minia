@@ -283,7 +283,7 @@ void Minia::assemble (const Graph& graph)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
             }
-            while ( (nbTipsRemovedPreviously == 0 || nbTipsRemoved * 1.1 < nbTipsRemovedPreviously)
+            while ( (nbTipsRemovedPreviously == 0)
                     && (nbTipsRemoved >= 10) 
                     && graphSimplification._nbTipRemovalPasses < 20);
 
@@ -295,7 +295,7 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved * 1.1 < nbBubblesRemovedPreviously)
+            while ((nbBubblesRemovedPreviously == 0)
                         && (nbBubblesRemoved >= 10) 
                         && graphSimplification._nbBubbleRemovalPasses < 20);
 
@@ -307,9 +307,9 @@ void Minia::assemble (const Graph& graph)
                     ECRemoval += " + ";
                 ECRemoval += std::to_string(nbECRemoved);
             }
-            while ((nbECRemovedPreviously == 0 || nbECRemoved * 1.1 < nbECRemovedPreviously)
+            while ((nbECRemovedPreviously == 0)
                         && (nbECRemoved >= 10) 
-                        && graphSimplification._nbECRemovalPasses < 10);
+                        && graphSimplification._nbECRemovalPasses < 20);
 
 
             nbECRemoved = 0; // reset EC removal counter
@@ -328,10 +328,11 @@ void Minia::assemble (const Graph& graph)
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
 
                 ECRemoval += std::to_string(nbECRemoved);
+
             }
-           while ((nbECRemovedPreviously == 0 || nbECRemoved * 1.1 < nbECRemovedPreviously)
-                   && (nbECRemoved >= 10)  
-                   && graphSimplification._nbECRemovalPasses < 20);
+           while ((nbECRemovedPreviously == 0)
+                   && (nbECRemoved >= 10)
+                   && graphSimplification._nbECRemovalPasses < 25);
         }
 
         /** We loop over all nodes. */
