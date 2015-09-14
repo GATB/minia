@@ -312,26 +312,32 @@ void Minia::assemble (const Graph& graph)
                         && graphSimplification._nbECRemovalPasses < 10);
 
 
-            nbBubblesRemoved = 0; // reset bubble removal counter
+            nbECRemoved = 0; // reset EC removal counter
             do
             {
                 nbTipsRemoved = graphSimplification.removeTips();
+                
                 nbBubblesRemovedPreviously = nbBubblesRemoved;
                 nbBubblesRemoved = graphSimplification.removeBulges();
+
+                nbECRemovedPreviously = nbECRemoved;
                 nbECRemoved = graphSimplification.removeErroneousConnections();
+
                 if (tipRemoval.size() != 0)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
+
                 if (bubbleRemoval.size() != 0)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
+
                 if (ECRemoval.size() != 0)
                     ECRemoval += " + ";
                 ECRemoval += std::to_string(nbECRemoved);
             }
-           while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved * 1.1 < nbBubblesRemovedPreviously)
-                   && (nbBubblesRemoved >= 10)  
-                   && graphSimplification._nbBubbleRemovalPasses < 20);
+           while ((nbECRemovedPreviously == 0 || nbECRemoved * 1.1 < nbECRemovedPreviously)
+                   && (nbECRemoved >= 10)  
+                   && graphSimplification._nbECRemovalPasses < 20);
         }
 
         /** We loop over all nodes. */
