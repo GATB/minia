@@ -944,6 +944,10 @@ unsigned long GraphSimplification::removeErroneousConnections()
 
                             bool isRCTC = satisfyRCTC(nodes, RCTCcutoff);
 
+                            std::reverse(nodes.begin(), nodes.end());
+                            isRCTC |= satisfyRCTC(nodes,RCTCcutoff); // also check in the other direction
+                            std::reverse(nodes.begin(), nodes.end());
+
                             bool isEC = isRCTC;
 
 

@@ -283,7 +283,7 @@ void Minia::assemble (const Graph& graph)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
             }
-            while ( (nbTipsRemovedPreviously == 0 || nbTipsRemoved >= 10) 
+            while ( ((nbTipsRemovedPreviously == 0 && nbTipsRemoved > 0) || nbTipsRemoved >= 10) 
                     && graphSimplification._nbTipRemovalPasses < 20);
 
             do
@@ -294,7 +294,7 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved >= 20)
+            while (((nbBubblesRemovedPreviously == 0 && nbBubblesRemoved > 0) || nbBubblesRemoved >= 20)
                         && graphSimplification._nbBubbleRemovalPasses < 20);
             
             do
@@ -305,7 +305,7 @@ void Minia::assemble (const Graph& graph)
                     ECRemoval += " + ";
                 ECRemoval += std::to_string(nbECRemoved);
             }
-            while ((nbECRemovedPreviously == 0 || nbECRemoved >= 10) 
+            while (((nbECRemovedPreviously == 0 && nbECRemoved > 0 ) || nbECRemoved >= 10) 
                         && graphSimplification._nbECRemovalPasses < 20);
 
 
@@ -320,14 +320,14 @@ void Minia::assemble (const Graph& graph)
                 nbECRemovedPreviously = nbECRemoved;
                 nbECRemoved = graphSimplification.removeErroneousConnections();
 
-                tipRemoval += std::to_string(nbTipsRemoved);
+                tipRemoval += " + " + std::to_string(nbTipsRemoved);
 
-                bubbleRemoval += std::to_string(nbBubblesRemoved);
+                bubbleRemoval += " + " + std::to_string(nbBubblesRemoved);
 
-                ECRemoval += std::to_string(nbECRemoved);
+                ECRemoval += " + " + std::to_string(nbECRemoved);
 
             }
-            while ((nbECRemovedPreviously == 0 || nbECRemoved >= 10)
+            while (((nbECRemovedPreviously == 0 && nbECRemoved > 0) || nbECRemoved >= 10)
                    && graphSimplification._nbECRemovalPasses < 25);
         }
 
