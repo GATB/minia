@@ -283,8 +283,7 @@ void Minia::assemble (const Graph& graph)
                     tipRemoval += " + ";
                 tipRemoval += std::to_string(nbTipsRemoved);
             }
-            while ( (nbTipsRemovedPreviously == 0)
-                    && (nbTipsRemoved >= 10) 
+            while ( (nbTipsRemovedPreviously == 0 || nbTipsRemoved >= 10) 
                     && graphSimplification._nbTipRemovalPasses < 20);
 
             do
@@ -295,10 +294,9 @@ void Minia::assemble (const Graph& graph)
                     bubbleRemoval += " + ";
                 bubbleRemoval += std::to_string(nbBubblesRemoved);
             }
-            while ((nbBubblesRemovedPreviously == 0)
-                        && (nbBubblesRemoved >= 10) 
+            while ((nbBubblesRemovedPreviously == 0 || nbBubblesRemoved >= 20)
                         && graphSimplification._nbBubbleRemovalPasses < 20);
-
+            
             do
             {
                 nbECRemovedPreviously = nbECRemoved;
@@ -307,8 +305,7 @@ void Minia::assemble (const Graph& graph)
                     ECRemoval += " + ";
                 ECRemoval += std::to_string(nbECRemoved);
             }
-            while ((nbECRemovedPreviously == 0)
-                        && (nbECRemoved >= 10) 
+            while ((nbECRemovedPreviously == 0 || nbECRemoved >= 10) 
                         && graphSimplification._nbECRemovalPasses < 20);
 
 
@@ -330,8 +327,7 @@ void Minia::assemble (const Graph& graph)
                 ECRemoval += std::to_string(nbECRemoved);
 
             }
-           while ((nbECRemovedPreviously == 0)
-                   && (nbECRemoved >= 10)
+            while ((nbECRemovedPreviously == 0 || nbECRemoved >= 10)
                    && graphSimplification._nbECRemovalPasses < 25);
         }
 
