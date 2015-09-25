@@ -813,7 +813,7 @@ unsigned long GraphSimplification::removeErroneousConnections()
 {
     unsigned int k = _graph.getKmerSize();
     unsigned int maxECLength = (unsigned int)((float)k * (10 - 1.0)) ;  // SPAdes mode 
-    double RCTCcutoff = 2.0;
+    double RCTCcutoff = 4.0;
 
     unsigned long nbSimplePaths = 0;
     unsigned long nbLongSimplePaths = 0;
