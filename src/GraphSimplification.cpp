@@ -529,6 +529,8 @@ Path GraphSimplification::heuristic_most_covered_path(
  *
  * spades pops bulges based on something like the ratio between most examined simple path and a more covered path is (whether it is above 1.1).
  * so i'm actually doing just that. I recall checking spades source code to implement this. this was during CAMI.
+ *
+ * In SPAdes' source, a simple path isn't a non-branching one, it is rather the wikipedia definition: one where nodes aren't repeated (and also here, no node is its own reverse-complement). This makes me think that GATB's simplePath function is a bit of a misnomer, should be called nonBranchingPath.
  */ 
 unsigned long GraphSimplification::removeBulges()
 {
@@ -945,7 +947,7 @@ unsigned long GraphSimplification::removeErroneousConnections()
                             bool isRCTC = satisfyRCTC(nodes, RCTCcutoff);
 
                             std::reverse(nodes.begin(), nodes.end());
-                            isRCTC |= satisfyRCTC(nodes,RCTCcutoff); // also check in the other direction
+                            isRCTC |= satisfyRCTC(nodes, RCTCcutoff); // also check in the other direction
                             std::reverse(nodes.begin(), nodes.end());
 
                             bool isEC = isRCTC;
