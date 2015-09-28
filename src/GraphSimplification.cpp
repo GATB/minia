@@ -309,9 +309,6 @@ unsigned long GraphSimplification::removeTips()
                 pathLen++;
             }
 
-            if (node != neighbors[0].from)
-                cout << "WTF!.!" << endl; // TODO remove that after a while
-
             // if it's not short, then no point in computing whether it's connected (this is a little optimization to a save the next neighbors call)
             if ( ! (isShortTopological || isShortRCTC) )
                 return;
@@ -582,22 +579,24 @@ unsigned long GraphSimplification::removeBulges()
       TIME(auto start_thread_t=get_wtime());
 
       unsigned long index = _graph.nodeMPHFIndex(node);
+      if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
+      if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
+
 
       // TODO think about cases where bulge suppression could make a node intresting
     /*  if (haveInterestingNodesInfo)
           if (interestingNodes[index] == false)
             return; // no pont in examining non-branching nodes, saves calls to in/out-degree, i.e. accesses to the minia datastructure
 */
+    
+       unsigned inDegree = _graph.indegree(node), outDegree = _graph.outdegree(node);
 
       // need to search in both directions
       for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
       {
-         if ((_graph.outdegree(node) >= 2 && dir == DIR_OUTCOMING) || (_graph.indegree(node) >= 2 && dir == DIR_INCOMING))
+         if ((outDegree >= 2 && dir == DIR_OUTCOMING) || (inDegree >= 2 && dir == DIR_INCOMING))
          {
             TIME(auto start_various_overhead_t=get_wtime());
-            if (_graph.isNodeDeleted(index)) { return; } // {continue;} // sequential and also parallel
-            if (nodesToDelete[index]) { return; }  // parallel // actually not sure if really useful
-
             DEBUG(cout << endl << "putative bulge node: " << _graph.toString (node) << endl);
 
             /** We follow the outgoing simple paths to get their length and last neighbor */
@@ -663,7 +662,7 @@ unsigned long GraphSimplification::removeBulges()
 
                 // at this point, the last node in "nodes" is the last node of a potential Bulge path, and endNode is hopefully a branching node right after.
                 // check if it's connected to something that has in-branching. 
-                bool isDoublyConnected = (_graph.indegree(endNode) > 1 && dir==DIR_OUTCOMING) || (dir==DIR_INCOMING && _graph.outdegree(endNode) > 1);
+                bool isDoublyConnected = (dir==DIR_OUTCOMING && _graph.indegree(endNode) > 1) || (dir==DIR_INCOMING && _graph.outdegree(endNode) > 1);
 
                 bool isTopologicalBulge = isDoublyConnected;
 
@@ -867,12 +866,8 @@ unsigned long GraphSimplification::removeErroneousConnections()
             // need to search in both directions
             for (Direction dir=DIR_OUTCOMING; dir<DIR_END; dir = (Direction)((int)dir + 1) )
             {
-
-                if ((_graph.outdegree(node) >= 2 && dir == DIR_OUTCOMING) || (_graph.indegree(node) >= 2 && dir == DIR_INCOMING))
+                if ((outDegree >= 2 && dir == DIR_OUTCOMING) || (inDegree >= 2 && dir == DIR_INCOMING))
                 {  
-                    if (_graph.isNodeDeleted(node)) { return; } // {continue;} // sequential and also parallel
-                    if (nodesToDelete[_graph.nodeMPHFIndex(node)]) { return; }  // parallel // actually not sure if really useful
-
                     DEBUG(cout << endl << "putative EC node: " << _graph.toString (node) << endl);
 
                     /** We follow the outcoming simple paths (so, if it's outdegree 2, we follow the outcoming simple paths.
