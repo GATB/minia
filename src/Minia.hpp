@@ -35,25 +35,28 @@ public:
     /** Constructor. */
     Minia ();
 
-private:
-
     /** \copydoc Tool::execute. */
     void  execute ();
 
     /** */
-    void assemble (const Graph& graph);
+    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+    void assemble (const Graph_type& graph);
     
-    /** */
-    void assembleFrom (Node startingNode, Traversal *traversal, const Graph& graph, IBank *outputBank);
+private:
 
     /** */
+    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+    void assembleFrom (Node startingNode, TraversalTemplate<Node,Edge,GraphDataVariant> *traversal, const Graph_type& graph, IBank *outputBank);
+
+    /** */
+    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
     void buildSequence (
-        const Graph& graph,
-        const Node& startingNode,
+        const Graph_type& graph,
+        Node& startingNode,
         size_t length,
         size_t nbContigs,
-        const Path& consensusRight,
-        const Path& consensusLeft,
+        const Path_t<Node>& consensusRight,
+        const Path_t<Node>& consensusLeft,
         Sequence& seq
     );
 

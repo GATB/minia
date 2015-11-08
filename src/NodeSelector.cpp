@@ -1,5 +1,10 @@
 // This is legacy code
 // we don't use it anymore when MPHF is enabled
+// I disabled its compilation because of the need to specialize the template for GraphFast. 
+// Didn't want to customize CMakeFile in the same way as gatb-core. 
+// Also, I'd like to get rid of this legacy code.
+
+#if 0
 
 /*****************************************************************************
  *   GATB : Genome Assembly Tool Box
@@ -26,6 +31,25 @@
 
 #include <NodeSelector.hpp>
 
+/********************************************************************************/
+namespace gatb { namespace core { namespace debruijn { namespace impl  {
+/********************************************************************************/
+
+
+typedef boost::variant<GraphData<32>> GraphDataVariantT;
+typedef GraphTemplate<Node_t<Kmer<32>::Type>, Edge_t<Node_t<Kmer<32>::Type>>, GraphDataVariantT> GraphT;
+typedef Node_t<Kmer<32>::Type> NodeT;
+typedef Edge_t<Node_t<Kmer<32>::Type>> EdgeT;
+typedef BranchingNode_t<Node_t<Kmer<32>::Type>> BranchingNodeT;
+typedef BranchingEdge_t<Node_t<Kmer<32>::Type>, Edge_t<Node_t<Kmer<32>::Type>>> BranchingEdgeT;
+
+#include <gatb/debruijn/impl/Instantiations.hpp> // this might be a bit exotic to do it like that.. but it works.
+
+/********************************************************************************/
+} } } } /* end of namespaces. */
+/********************************************************************************/
+
+
 using namespace std;
 
 /*********************************************************************
@@ -36,11 +60,12 @@ using namespace std;
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-INodeSelector* NodeSelectorFactory::create (const std::string& type, const Graph& graph, Terminator& terminator)
+template <typename Node, typename Edge, typename GraphDataVariant>
+INodeSelector<Node,Edge,GraphDataVariant>* NodeSelectorFactory<Node,Edge,GraphDataVariant>::create (const std::string& type, const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator)
 {
-         if (type == "simple")  { return new NodeSelectorSimplePath (graph, terminator); }
-    else if (type == "best")    { return new NodeSelectorBest       (graph, terminator); }
-    else                        { return new NodeSelectorBest       (graph, terminator); }
+         if (type == "simple")  { return new NodeSelectorSimplePath<Node,Edge,GraphDataVariant> (graph, terminator); }
+    else if (type == "best")    { return new NodeSelectorBest<Node,Edge,GraphDataVariant>       (graph, terminator); }
+    else                        { return new NodeSelectorBest<Node,Edge,GraphDataVariant>       (graph, terminator); }
 }
 
 /*********************************************************************
@@ -51,31 +76,32 @@ INodeSelector* NodeSelectorFactory::create (const std::string& type, const Graph
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNode)
+template <typename Node, typename Edge, typename GraphDataVariant>
+bool NodeSelectorSimplePath<Node,Edge,GraphDataVariant>::select (const Node& branchingNode, Node& startingNode)
 {
 
     /** We retrieve the neighbors of the provided node. */
-    Graph::Vector<Edge> neighbors = _graph.neighbors<Edge>(branchingNode.kmer);
+    typename GraphTemplate<Node,Edge,GraphDataVariant>::template Vector<Edge> neighbors = this->_graph.template neighbors<Edge>(branchingNode.kmer);
 
     /** We loop these neighbors. */
     for (size_t i=0; i<neighbors.size(); i++)
     {
         /** make sure this kmer isnt branching */
-        if (_terminator.is_branching (neighbors[i].to))  {  continue;  }
+        if (this->_terminator.is_branching (neighbors[i].to))  {  continue;  }
         /* FIXME: if we skip unitigs that are just one branching kmer, it means that we don't return ALL unitigs */
 
-        if (_terminator.is_marked (neighbors[i].to))  {  continue;  }
+        if (this->_terminator.is_marked (neighbors[i].to))  {  continue;  }
 
         /** only start from an unmarked nt/strand combo */
-        if (_terminator.is_marked (neighbors[i]))  {  continue;  }
+        if (this->_terminator.is_marked (neighbors[i]))  {  continue;  }
 
         /** We mark the current neighbor edge. */
-        _terminator.mark (neighbors[i]);
+        this->_terminator.mark (neighbors[i]);
 
         size_t len_extension = 0;
 
         /** We loop successive node on a simple path. */
-        Graph::Iterator<Node> itNodes = _graph.simplePath<Node> (neighbors[i].to, neighbors[i].direction);
+        typename GraphTemplate<Node,Edge,GraphDataVariant>::template Iterator<Node> itNodes = this->_graph.template simplePath<Node> (neighbors[i].to, neighbors[i].direction);
 
         for (itNodes.first(); !itNodes.isDone(); itNodes.next())
         {
@@ -86,7 +112,7 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
 
             startingNode = itNodes.item();
 
-            if (len_extension++ > 2*_graph.getKmerSize() || (!only_simple_path_longer_than_2k))
+            if (len_extension++ > 2*this->_graph.getKmerSize() || (!only_simple_path_longer_than_2k))
             {
                 /** NOTE: By convention, the returned node is understood as the forward part of the node in the
                  * bi-directional De Bruijn graph.  */
@@ -109,10 +135,11 @@ bool NodeSelectorSimplePath::select (const Node& branchingNode, Node& startingNo
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-bool NodeSelectorImproved::select (const Node& source, Node& result)
+template <typename Node, typename Edge, typename GraphDataVariant>
+bool NodeSelectorImproved<Node,Edge,GraphDataVariant>::select (const Node& source, Node& result)
 {
     /** We retrieve the neighbors of the provided node. */
-    Graph::Vector<Node> neighbors = _graph.neighbors<Node>(source.kmer);
+    typename GraphTemplate<Node,Edge,GraphDataVariant>::template Vector<Node> neighbors = this->_graph.template neighbors<Node>(source.kmer);
 
     /** We loop these neighbors. */
     for (size_t i=0; i<neighbors.size(); i++)
@@ -125,11 +152,11 @@ bool NodeSelectorImproved::select (const Node& source, Node& result)
         // to mark as used in assembly: mark branching nodes
 
         // only start from a non-branching k-mer
-        if (_terminator.is_branching(node))  { continue;  }
+        if (this->_terminator.is_branching(node))  { continue;  }
 
-        if (_terminator.is_marked(node))     { continue;  }
+        if (this->_terminator.is_marked(node))     { continue;  }
 
-        _terminator.mark(node);
+        this->_terminator.mark(node);
 
         result = node;
 
@@ -151,7 +178,8 @@ bool NodeSelectorImproved::select (const Node& source, Node& result)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-bool NodeSelectorBest::select (const Node& source, Node& result)
+template <typename Node, typename Edge, typename GraphDataVariant>
+bool NodeSelectorBest<Node,Edge,GraphDataVariant>::select (const Node& source, Node& result)
 {
     Direction dir = DIR_OUTCOMING;
     unsigned int sum_depths = 0;
@@ -160,10 +188,10 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
     if (_firstSelector.select (source, result) == false)  { return false; }
 
     /** We use a monument traversal. */
-    MonumentTraversal monument (_graph, NullTerminator::singleton());
+    MonumentTraversalTemplate<Node,Edge,GraphDataVariant> monument (this->_graph, NullTerminatorTemplate<Node,Edge,GraphDataVariant>::singleton());
 
     /** We try each direction (outcoming and incoming). */
-    Node nodes[] = { result, _graph.reverse(result) };
+    Node nodes[] = { result, this->_graph.reverse(result) };
 
     for (size_t i=0; i<ARRAY_SIZE(nodes); i++)
     {
@@ -172,7 +200,7 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
         bool hasPreviousNode = false;
 
         // do a BFS to make sure we're not inside a bubble or tip
-        Frontline frontline (dir, _graph, _terminator, current);
+        FrontlineTemplate<Node,Edge,GraphDataVariant> frontline (dir, this->_graph, this->_terminator, current);
 
         do
         {
@@ -190,7 +218,7 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
                 Node currentNode;
                 if (frontline.size() == 1)  {  currentNode = frontline.front().node;  }
 
-                if (hasPreviousNode && _terminator.is_branching(previousNode))
+                if (hasPreviousNode && this->_terminator.is_branching(previousNode))
                 {
                     /* the current situation is:
                      *
@@ -208,9 +236,10 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
                      *
                      */
                     set<Node> all_involved_extensions;
-                    Path consensus;
-                    
-                    if (monument.explore_branching (_graph.reverse(previousNode), dir, consensus, currentNode, all_involved_extensions))
+                    Path_t<Node> consensus;
+                   
+                    Node rev_node = (this->_graph.reverse(previousNode)); 
+                    if (monument.explore_branching (rev_node, dir, consensus, currentNode, all_involved_extensions))
                     {
                         if (all_involved_extensions.find(current) != all_involved_extensions.end())
                         {
@@ -237,7 +266,7 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
     }
 
     // don't even assemble those regions which have no chance to yield a long contig
-    if (sum_depths < (_graph.getKmerSize()+1))  {  return false;  }
+    if (sum_depths < (this->_graph.getKmerSize()+1))  {  return false;  }
 
     /** NOTE: By convention, the returned node is understood as the forward part of the node in the
      * bi-directional De Bruijn graph.  */
@@ -245,3 +274,13 @@ bool NodeSelectorBest::select (const Node& source, Node& result)
 
     return true;
 }
+
+// TODO make that more clean or just remove NodeFactory altogether
+//
+template class NodeSelectorFactory<Node_t<Kmer<32>::Type>,Edge_t<Node_t<Kmer<32>::Type >>,  boost::variant<GraphData<32>> >; 
+//template class NodeSelectorFactory<Node_t<Kmer<64>::Type>,Edge_t<Node_t<Kmer<64>::Type >>,  boost::variant<GraphData<64>> >; 
+//template class NodeSelectorFactory<Node_t<Kmer<96>::Type>,Edge_t<Node_t<Kmer<96>::Type >>,  boost::variant<GraphData<96>> >; 
+//template class NodeSelectorFactory<Node_t<Kmer<128>::Type>,Edge_t<Node_t<Kmer<128>::Type >>,  boost::variant<GraphData<128>> >; 
+//
+//
+#endif

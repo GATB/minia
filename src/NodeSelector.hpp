@@ -27,11 +27,12 @@
 /********************************************************************************/
 
 /** */
+template <typename Node, typename Edge, typename GraphDataVariant>
 class INodeSelector : public SmartPointer
 {
 public:
 
-    virtual ~INodeSelector()  {}
+    virtual ~INodeSelector<Node,Edge,GraphDataVariant>()  {}
 
     virtual bool select (const Node& source, Node& result) = 0;
 
@@ -40,29 +41,31 @@ public:
 
 /********************************************************************************/
 
+template <typename Node, typename Edge, typename GraphDataVariant>
 class NodeSelectorFactory
 {
 public:
 
-    static NodeSelectorFactory& singleton()  { static NodeSelectorFactory instance; return instance; }
+    static NodeSelectorFactory<Node,Edge,GraphDataVariant>& singleton()  { static NodeSelectorFactory<Node,Edge,GraphDataVariant> instance; return instance; }
 
-    INodeSelector* create (const std::string& type, const Graph& graph, Terminator& terminator);
+    INodeSelector<Node,Edge,GraphDataVariant>* create (const std::string& type, const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator);
 };
 
 /********************************************************************************/
 
 /** Abstract factorization. */
 
-class NodeSelectorAbstract : public INodeSelector
+template <typename Node, typename Edge, typename GraphDataVariant>
+class NodeSelectorAbstract : public INodeSelector<Node,Edge,GraphDataVariant>
 {
 public:
 
-    NodeSelectorAbstract (const Graph& graph, Terminator& terminator)
+    NodeSelectorAbstract (const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator)
         : _graph(graph), _terminator(terminator) {}
 
 protected:
-    const Graph&  _graph;
-    Terminator&   _terminator;
+    const GraphTemplate<Node,Edge,GraphDataVariant>&  _graph;
+    TerminatorTemplate<Node,Edge,GraphDataVariant>&   _terminator;
 };
 
 /********************************************************************************/
@@ -76,12 +79,13 @@ protected:
  *  solution:
  *      detect a 2k+2 simple path (anything NOT deadend or snp) around the branching kmer and start to extend from it
  */
-class NodeSelectorSimplePath : public NodeSelectorAbstract
+template <typename Node, typename Edge, typename GraphDataVariant>
+class NodeSelectorSimplePath : public NodeSelectorAbstract<Node,Edge,GraphDataVariant>
 {
 public:
 
-    NodeSelectorSimplePath (const Graph& graph, Terminator& terminator)
-        : NodeSelectorAbstract (graph, terminator) {}
+    NodeSelectorSimplePath (const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator)
+        : NodeSelectorAbstract<Node,Edge,GraphDataVariant> (graph, terminator) {}
 
     bool select (const Node& source, Node& result);
 
@@ -90,12 +94,13 @@ public:
 
 /********************************************************************************/
 
-class NodeSelectorImproved : public NodeSelectorAbstract
+template <typename Node, typename Edge, typename GraphDataVariant>
+class NodeSelectorImproved : public NodeSelectorAbstract<Node,Edge,GraphDataVariant>
 {
 public:
 
-    NodeSelectorImproved (const Graph& graph, Terminator& terminator)
-        : NodeSelectorAbstract (graph, terminator) {}
+    NodeSelectorImproved (const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator)
+        : NodeSelectorAbstract<Node,Edge,GraphDataVariant> (graph, terminator) {}
 
     bool select (const Node& source, Node& result);
 
@@ -104,19 +109,20 @@ public:
 
 /********************************************************************************/
 
-class NodeSelectorBest : public NodeSelectorAbstract
+template <typename Node, typename Edge, typename GraphDataVariant>
+class NodeSelectorBest : public NodeSelectorAbstract<Node,Edge,GraphDataVariant>
 {
 public:
 
-    NodeSelectorBest (const Graph& graph, Terminator& terminator)
-        : NodeSelectorAbstract (graph, terminator),  _firstSelector (graph, terminator) {}
+    NodeSelectorBest (const GraphTemplate<Node,Edge,GraphDataVariant>& graph, TerminatorTemplate<Node,Edge,GraphDataVariant>& terminator)
+        : NodeSelectorAbstract<Node,Edge,GraphDataVariant> (graph, terminator),  _firstSelector (graph, terminator) {}
 
     bool select (const Node& source, Node& result);
 
     std::string getName () const  { return "best"; }
 
 private:
-    NodeSelectorImproved _firstSelector;
+    NodeSelectorImproved<Node,Edge,GraphDataVariant> _firstSelector;
 };
 
 /********************************************************************************/

@@ -22,8 +22,8 @@
 /********************************************************************************/
 
 #include <Minia.hpp>
-#include <NodeSelector.hpp>
-#include <GraphSimplification.hpp>
+//#include <NodeSelector.hpp> // legacy
+#include <gatb/debruijn/impl/Simplifications.hpp>
 
 #include <fstream>
 #include <string>
@@ -93,40 +93,68 @@ Minia::Minia () : Tool ("minia")
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void Minia::execute ()
+struct Parameter
 {
- 	Graph graph;
+    Parameter (Minia& minia) : minia(minia){}
+    Minia&         minia;
+};
+
+// TODO refactor: can it be done that MiniaFunctor is a member of Minia class?
+template<size_t span> 
+struct MiniaFunctor  {  void operator ()  (Parameter parameter)
+{
+    Minia&       minia = parameter.minia;
+
+    typedef GraphTemplate<NodeFast<span>,EdgeFast<span>,GraphDataVariantFast<span>> GraphFast;
+
+    GraphFast graph;
 
     // graph to not construct branching nodes in the event of mphf != none
-    if (getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+    if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
 
-	if (getInput()->get(STR_URI_INPUT) != 0)
+	if (minia.getInput()->get(STR_URI_INPUT) != 0)
     {
-        graph = Graph::create (getInput());
+        graph = GraphFast::create (minia.getInput());
     }
     else
     {
-        throw OptionFailure (getParser(), "Specifiy -in");
+        throw OptionFailure (minia.getParser(), "Specifiy -in");
 	}
 
+    // new    
+    graph.precomputeAdjacency(minia.getInput()->getInt(STR_NB_CORES));
+
     /** We build the contigs. */
-    assemble (graph);
+    minia.assemble<GraphFast, NodeFast<span>, EdgeFast<span>, GraphDataVariantFast<span> >(graph);
 
     /** We gather some statistics. */
-    getInfo()->add (1, getTimeInfo().getProperties("time"));
+    minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
+}
+};
+
+void Minia::execute ()
+{
+    /** we get the kmer size chosen by the end user. */
+    size_t kmerSize = getInput()->getInt (STR_KMER_SIZE);
+
+    /** We launch Minia with the correct Integer implementation according to the choosen kmer size. */
+    Integer::apply<MiniaFunctor,Parameter> (kmerSize, Parameter (*this));
 }
 
-void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& graph, IBank *outputBank)
+
+template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,GraphDataVariant> *traversal, const Graph_type& graph, IBank *outputBank)
 {
 
-    Path consensusRight;
-    Path consensusLeft;
+    Path_t<Node> consensusRight;
+    Path_t<Node> consensusLeft;
     Sequence seq (Data::ASCII);
 
     /** We compute right and left extensions of the starting node. */
     unsigned int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
     bool isolatedLeft = traversal->deadend;
-    unsigned int lenLeft  = traversal->traverse (graph.reverse(startingNode), DIR_OUTCOMING, consensusLeft);
+    Node rev_node = graph.reverse(startingNode);
+    unsigned int lenLeft  = traversal->traverse (rev_node, DIR_OUTCOMING, consensusLeft);
     bool isolatedRight = traversal->deadend;
 
     unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
@@ -136,7 +164,7 @@ void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& g
     if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
     {
         /** We create the contig sequence. */
-        buildSequence (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
+        buildSequence<Graph_type,Node,Edge,GraphDataVariant> (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
 
         /** We add the sequence into the output bank. */
         outputBank->insert (seq);
@@ -165,7 +193,8 @@ void Minia::assembleFrom(Node startingNode, Traversal *traversal, const Graph& g
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void Minia::assemble (const Graph& graph)
+template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+void Minia::assemble (const Graph_type& graph)
 {
     TIME_INFO (getTimeInfo(), "assembly");
 
@@ -175,9 +204,9 @@ void Minia::assemble (const Graph& graph)
                     )+ ".contigs.fa";
 
     /** We setup default values if needed. */
-    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  Traversal::defaultMaxLen);     }
-    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   Traversal::defaultMaxDepth);   }
-    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, Traversal::defaultMaxBreadth); }
+    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxLen);     }
+    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxDepth);   }
+    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxBreadth); }
 
     /** We create the output bank. Note that we could make this a little bit prettier
      *  => possibility to save the contigs in specific output format (other than fasta).  */
@@ -187,37 +216,39 @@ void Minia::assemble (const Graph& graph)
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    hasMphf = (graph.getState() & Graph::STATE_MPHF_DONE);
+    hasMphf = (graph.getState() & Graph_type::STATE_MPHF_DONE);
     bool legacyTraversal = !hasMphf;
 
-    Terminator *terminator;
-    INodeSelector* starter = NULL;
+    TerminatorTemplate<Node,Edge,GraphDataVariant> *terminator;
+   // INodeSelector<Node,Edge,GraphDataVariant>* starter = NULL; // legacy
     string traversalKind;
     bool simplifyGraph = false;
 
+#if 0
     // Legacy Minia traversal mode: index branching nodes to mark kmers, use branching nodes to start traversals
     if (legacyTraversal)
     { 
         /** We create the Terminator. */
-        terminator = new BranchingTerminator(graph);
+        terminator = new BranchingTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
 
         /** We create the starting node selector according to the user choice. */
-        starter = NodeSelectorFactory::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, *terminator);
+        starter = NodeSelectorFactory<Node,Edge,GraphDataVariant>::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, *terminator);
         
         traversalKind = getInput()->getStr(STR_TRAVERSAL_KIND);
     }
     /* New Minia traversal mode: use MPHF to mark visited nodes. output all unitigs of simplified graph. doesn't care about -starter option */
     else
+#endif
     {
-        terminator = new MPHFTerminator(graph);
+        terminator = new MPHFTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
         traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
         simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
     }
     LOCAL (terminator);
-    LOCAL (starter);
+    //LOCAL (starter); // legacy
 
     /** We create the Traversal instance according to the user choice. */
-    Traversal* traversal = Traversal::create (
+    TraversalTemplate<Node,Edge,GraphDataVariant>* traversal = TraversalTemplate<Node,Edge,GraphDataVariant>::create (
         traversalKind,
         graph,
         *terminator,
@@ -238,10 +269,11 @@ void Minia::assemble (const Graph& graph)
 
     string tipRemoval = "", bubbleRemoval = "", ECRemoval = "";
 
+#if 0
     if (legacyTraversal)
     {
         /** We get an iterator over the branching nodes. */
-        ProgressGraphIterator<BranchingNode,ProgressTimerAndSystem> itBranching (graph.iterator<BranchingNode>(), progressFormat0);
+        ProgressGraphIteratorTemplate<BranchingNode_t<Node>,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itBranching (graph.Graph_type::iteratorBranching(), progressFormat0);
 
         /** We loop over the branching nodes. */
         for (itBranching.first(); !itBranching.isDone(); itBranching.next())
@@ -261,74 +293,23 @@ void Minia::assemble (const Graph& graph)
         } /* end of for (itBranching.first() */
     }
     else
+#endif
     {
         /** We get an iterator over all nodes . */
-        ProgressGraphIterator<Node,ProgressTimerAndSystem> itNode (graph.iterator<Node>(), progressFormat0);
+        ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itNode (graph.Graph_type::iterator(), progressFormat0);
 
         // if we want unitigs, then don't simplify the graph; else do it
         if (simplifyGraph)
         {
             int nbCores = getInput()->getInt(STR_NB_CORES);
-            GraphSimplification graphSimplification(graph, nbCores);
-           
-            unsigned long nbTipsRemoved = 0, nbTipsRemovedPreviously = 0;
-            unsigned long nbBubblesRemoved = 0, nbBubblesRemovedPreviously = 0;
-            unsigned long nbECRemoved = 0, nbECRemovedPreviously = 0;
+            bool verbose=true;
+            Simplifications<Node,Edge,GraphDataVariant> graphSimplifications(graph, nbCores, verbose);
+        
+            graphSimplifications.simplify();
 
-            do
-            {
-                nbTipsRemovedPreviously = nbTipsRemoved;
-                nbTipsRemoved = graphSimplification.removeTips();
-                if (tipRemoval.size() != 0)
-                    tipRemoval += " + ";
-                tipRemoval += std::to_string(nbTipsRemoved);
-            }
-            while ( ((nbTipsRemovedPreviously == 0 && nbTipsRemoved > 0) || nbTipsRemoved >= 10) 
-                    && graphSimplification._nbTipRemovalPasses < 20);
-
-            do
-            {
-                nbBubblesRemovedPreviously = nbBubblesRemoved;
-                nbBubblesRemoved = graphSimplification.removeBulges(); // now we're using bulges removal, not bubbles (to follow SPAdes)
-                if (bubbleRemoval.size() != 0)
-                    bubbleRemoval += " + ";
-                bubbleRemoval += std::to_string(nbBubblesRemoved);
-            }
-            while (((nbBubblesRemovedPreviously == 0 && nbBubblesRemoved > 0) || nbBubblesRemoved >= 20)
-                        && graphSimplification._nbBubbleRemovalPasses < 20);
-            
-            do
-            {
-                nbECRemovedPreviously = nbECRemoved;
-                nbECRemoved = graphSimplification.removeErroneousConnections(); // now we're using bulges removal, not bubbles (to follow SPAdes)
-                if (ECRemoval.size() != 0)
-                    ECRemoval += " + ";
-                ECRemoval += std::to_string(nbECRemoved);
-            }
-            while (((nbECRemovedPreviously == 0 && nbECRemoved > 0 ) || nbECRemoved >= 10) 
-                        && graphSimplification._nbECRemovalPasses < 20);
-
-
-            nbECRemoved = 0; // reset EC removal counter
-            do
-            {
-                nbTipsRemoved = graphSimplification.removeTips();
-                
-                nbBubblesRemovedPreviously = nbBubblesRemoved;
-                nbBubblesRemoved = graphSimplification.removeBulges();
-
-                nbECRemovedPreviously = nbECRemoved;
-                nbECRemoved = graphSimplification.removeErroneousConnections();
-
-                tipRemoval += " + " + std::to_string(nbTipsRemoved);
-
-                bubbleRemoval += " + " + std::to_string(nbBubblesRemoved);
-
-                ECRemoval += " + " + std::to_string(nbECRemoved);
-
-            }
-            while (((nbECRemovedPreviously == 0 && nbECRemoved > 0) || nbECRemoved >= 10)
-                   && graphSimplification._nbECRemovalPasses < 25);
+            tipRemoval = graphSimplifications.tipRemoval;
+            bubbleRemoval = graphSimplifications.bubbleRemoval;
+            ECRemoval = graphSimplifications.ECRemoval;
         }
 
         /** We loop over all nodes. */
@@ -354,8 +335,8 @@ void Minia::assemble (const Graph& graph)
     getInfo()->add (1, "stats");
     getInfo()->add (2, "traversal",         "%s", getInput()->getStr(STR_TRAVERSAL_KIND).c_str());
     getInfo()->add (2, "using_mphf",    "%d", hasMphf);
-    if (legacyTraversal)
-        getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
+    //if (legacyTraversal)
+    //    getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
@@ -398,13 +379,14 @@ void Minia::assemble (const Graph& graph)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
+template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
 void Minia::buildSequence (
-    const Graph& graph,
-    const Node& startingNode,
+    const Graph_type& graph,
+    Node& startingNode,
     size_t length,
     size_t nbContigs,
-    const Path& consensusRight,
-    const Path& consensusLeft,
+    const Path_t<Node>& consensusRight,
+    const Path_t<Node>& consensusLeft,
     Sequence& seq
 )
 {
@@ -442,7 +424,7 @@ void Minia::buildSequence (
 
     // get coverage
     double coverage = 0;
-    if (hasMphf)
+    if (hasMphf && 0) // FIXME FIXME
     {
         for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
         {
@@ -451,7 +433,7 @@ void Minia::buildSequence (
             /* I know that buildNode was supposed to be used for test purpose only,
              * but couldn't find anything else to transform my substring into a kmer */
 
-            unsigned char abundance = graph.queryAbundance(node.kmer);
+            unsigned char abundance = graph.queryAbundance(node);
             coverage += (unsigned int)abundance;
 
         }

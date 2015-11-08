@@ -3,7 +3,8 @@ project(minia)
 cmake_minimum_required (VERSION 2.6)
 
 # We define the supported kmer size for this tool
-set (KSIZE_LIST "32   64   96  128  160  192  224  256")
+list (APPEND KSIZE_DEFAULT_LIST  32   64   96  128  160  192  224  256)
+
 
 ################################################################################
 # Define cmake modules directory
@@ -25,6 +26,7 @@ ENDFOREACH(path)
 
 # GATB CORE
 include (GatbCore)
+
 
 ################################################################################
 # TOOL
