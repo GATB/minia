@@ -109,17 +109,21 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 
     GraphFast graph;
 
-    // graph to not construct branching nodes in the event of mphf != none
-    if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+    {
+        TIME_INFO (minia.getTimeInfo(), "graph construction");
 
-	if (minia.getInput()->get(STR_URI_INPUT) != 0)
-    {
-        graph = GraphFast::create (minia.getInput());
+        // graph to not construct branching nodes in the event of mphf != none
+        if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+
+        if (minia.getInput()->get(STR_URI_INPUT) != 0)
+        {
+            graph = GraphFast::create (minia.getInput());
+        }
+        else
+        {
+            throw OptionFailure (minia.getParser(), "Specifiy -in");
+        }
     }
-    else
-    {
-        throw OptionFailure (minia.getParser(), "Specifiy -in");
-	}
 
     // new    
     graph.precomputeAdjacency(minia.getInput()->getInt(STR_NB_CORES));
