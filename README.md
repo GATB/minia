@@ -7,8 +7,10 @@ we have set up a Q&A website, see the Support section in http://minia.genouest.o
 to contact an author directly: rayan.chikhi@ens-cachan.org
 
 
-Compilation tips
-----------------
+Compilation 
+-----------
+
+A C++11-compatible compiler is necesary. (e.g. GCC >= 4.7)
 
 If cmake complains that pdflatex/bibtex are absent, compile with: 
     
