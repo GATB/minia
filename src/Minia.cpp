@@ -22,7 +22,6 @@
 /********************************************************************************/
 
 #include <Minia.hpp>
-//#include <NodeSelector.hpp> // legacy
 #include <gatb/debruijn/impl/Simplifications.hpp>
 
 #include <fstream>
@@ -112,8 +111,8 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     {
         TIME_INFO (minia.getTimeInfo(), "graph construction");
 
-        // graph to not construct branching nodes in the event of mphf != none
-        if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("none") != 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+        // graph to not construct branching nodes
+        minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");
 
         if (minia.getInput()->get(STR_URI_INPUT) != 0)
         {
@@ -220,36 +219,15 @@ void Minia::assemble (const Graph_type& graph)
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    hasMphf = (graph.getState() & Graph_type::STATE_MPHF_DONE);
-    bool legacyTraversal = !hasMphf;
-
     TerminatorTemplate<Node,Edge,GraphDataVariant> *terminator;
-   // INodeSelector<Node,Edge,GraphDataVariant>* starter = NULL; // legacy
-    string traversalKind;
     bool simplifyGraph = false;
 
-#if 0
-    // Legacy Minia traversal mode: index branching nodes to mark kmers, use branching nodes to start traversals
-    if (legacyTraversal)
-    { 
-        /** We create the Terminator. */
-        terminator = new BranchingTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
-
-        /** We create the starting node selector according to the user choice. */
-        starter = NodeSelectorFactory<Node,Edge,GraphDataVariant>::singleton().create (getInput()->getStr(STR_STARTER_KIND), graph, *terminator);
-        
-        traversalKind = getInput()->getStr(STR_TRAVERSAL_KIND);
-    }
     /* New Minia traversal mode: use MPHF to mark visited nodes. output all unitigs of simplified graph. doesn't care about -starter option */
-    else
-#endif
-    {
-        terminator = new MPHFTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
-        traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
-        simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
-    }
+    terminator = new MPHFTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
+    string traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
+    simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
+
     LOCAL (terminator);
-    //LOCAL (starter); // legacy
 
     /** We create the Traversal instance according to the user choice. */
     TraversalTemplate<Node,Edge,GraphDataVariant>* traversal = TraversalTemplate<Node,Edge,GraphDataVariant>::create (
@@ -273,63 +251,36 @@ void Minia::assemble (const Graph_type& graph)
 
     string tipRemoval = "", bubbleRemoval = "", ECRemoval = "";
 
-#if 0
-    if (legacyTraversal)
+
+    /** We get an iterator over all nodes . */
+    ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itNode (graph.Graph_type::iterator(), progressFormat0);
+
+    // if we want unitigs, then don't simplify the graph; else do it
+    if (simplifyGraph)
     {
-        /** We get an iterator over the branching nodes. */
-        ProgressGraphIteratorTemplate<BranchingNode_t<Node>,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itBranching (graph.Graph_type::iteratorBranching(), progressFormat0);
+        int nbCores = getInput()->getInt(STR_NB_CORES);
+        bool verbose=true;
+        Simplifications<Node,Edge,GraphDataVariant> graphSimplifications(graph, nbCores, verbose);
 
-        /** We loop over the branching nodes. */
-        for (itBranching.first(); !itBranching.isDone(); itBranching.next())
-        {
-            DEBUG ((cout << endl << "-------------------------- " << graph.toString (itBranching.item()) << " -------------------------" << endl));
+        graphSimplifications.simplify();
 
-            Node startingNode;
-
-            // keep looping while a starting kmer is available from this kmer
-            // everything will be marked during the traversal()'s
-            while (starter->select (itBranching.item(), startingNode) == true)
-            {
-                assembleFrom(startingNode, traversal, graph, outputBank);        
-
-            } /* end of  while (starter->select() */
-
-        } /* end of for (itBranching.first() */
+        tipRemoval = graphSimplifications.tipRemoval;
+        bubbleRemoval = graphSimplifications.bubbleRemoval;
+        ECRemoval = graphSimplifications.ECRemoval;
     }
-    else
-#endif
+
+    /** We loop over all nodes. */
+    for (itNode.first(); !itNode.isDone(); itNode.next())
     {
-        /** We get an iterator over all nodes . */
-        ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itNode (graph.Graph_type::iterator(), progressFormat0);
+        Node node = itNode.item();
 
-        // if we want unitigs, then don't simplify the graph; else do it
-        if (simplifyGraph)
-        {
-            int nbCores = getInput()->getInt(STR_NB_CORES);
-            bool verbose=true;
-            Simplifications<Node,Edge,GraphDataVariant> graphSimplifications(graph, nbCores, verbose);
-        
-            graphSimplifications.simplify();
+        // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
+        if (terminator->is_marked (node))  {  continue;   }
+        if (graph.isNodeDeleted(node)) { continue; }
 
-            tipRemoval = graphSimplifications.tipRemoval;
-            bubbleRemoval = graphSimplifications.bubbleRemoval;
-            ECRemoval = graphSimplifications.ECRemoval;
-        }
+        DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
 
-        /** We loop over all nodes. */
-        for (itNode.first(); !itNode.isDone(); itNode.next())
-        {
-            Node node = itNode.item();
-
-            // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
-            if (terminator->is_marked (node))  {  continue;   }
-            if (graph.isNodeDeleted(node)) { continue; }
-
-            DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
-
-            assembleFrom(node, traversal, graph, outputBank);
-        }
-
+        assembleFrom(node, traversal, graph, outputBank);
     }
 
     /** We add the input parameters to the global properties. */
@@ -338,9 +289,7 @@ void Minia::assemble (const Graph_type& graph)
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
     getInfo()->add (2, "traversal",         "%s", getInput()->getStr(STR_TRAVERSAL_KIND).c_str());
-    getInfo()->add (2, "using_mphf",    "%d", hasMphf);
-    //if (legacyTraversal)
-    //    getInfo()->add (2, "start_selector",    "%s", starter->getName().c_str());
+    getInfo()->add (2, "using_mphf",    "%d", hasMphf); // should always be true
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
@@ -348,30 +297,14 @@ void Minia::assemble (const Graph_type& graph)
     getInfo()->add (2, "max_length_left",   "%d", maxContigLenLeft);
     getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
 
-    if (legacyTraversal)
-    {
-        getInfo()->add (2, "debugging traversal stats");
-        getInfo()->add (3, "large breadth",          "%d", traversal->final_stats.couldnt_traverse_bubble_breadth);
-        getInfo()->add (3, "large depth",            "%d", traversal->final_stats.couldnt_traverse_bubble_depth);
-        getInfo()->add (3, "marked kmer inside traversal",        "%d", traversal->final_stats.couldnt_because_marked_kmer);
-        getInfo()->add (3, "traversal ends with dead-ends",             "%d", traversal->final_stats.couldnt_find_extension);
-        getInfo()->add (3, "in-branching large depth",       "%d", traversal->final_stats.couldnt_inbranching_depth);
-        getInfo()->add (3, "in-branching large breadth",    "%d", traversal->final_stats.couldnt_inbranching_breadth);
-        getInfo()->add (3, "in-branching other",            "%d", traversal->final_stats.couldnt_inbranching_other);
-        getInfo()->add (3, "couldn't validate consensuses", "%d", traversal->final_stats.couldnt_validate_consensuses);
-    }
-    else
-    {
-        getInfo()->add (2, "graph simpification stats");
-        getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
-        getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
-        getInfo()->add (3, "EC removed",          "%s", ECRemoval.c_str());
-        getInfo()->add (2, "assembly traversal stats");
-        getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
-        getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
-        getInfo()->add (3, "in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
-
-    }
+    getInfo()->add (2, "graph simpification stats");
+    getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
+    getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
+    getInfo()->add (3, "EC removed",          "%s", ECRemoval.c_str());
+    getInfo()->add (2, "assembly traversal stats");
+    getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
+    getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
+    getInfo()->add (3, "in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
 
 }
 
@@ -428,7 +361,8 @@ void Minia::buildSequence (
 
     // get coverage
     double coverage = 0;
-    if (hasMphf && 0) // FIXME FIXME
+    bool computeCoverage = true;
+    if (computeCoverage)
     {
         for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
         {

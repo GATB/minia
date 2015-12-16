@@ -92,7 +92,7 @@ The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \ver
 
 Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source, to support $k$-mer lengths up to, say, 320, type this in the build folder:
 \begin{verbatim}
-rm -Rf CMake* && cmake     cmake -DKSIZE_LIST="32   64   96  128  160  192  224  256  320" .. .. && make
+rm -Rf CMake* && cmake -DKSIZE_LIST="32   64   96  128  160  192  224  256  320" .. && make -j 4
 \end{verbatim}
 
 The list of kmers should only contain multiples of 32. Intermediate values are create optimized code for smaller $k$ values.
