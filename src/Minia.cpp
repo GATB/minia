@@ -113,7 +113,7 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
         TIME_INFO (minia.getTimeInfo(), "graph construction");
 
         // graph to not construct branching nodes in the event of mphf != none
-        if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("emphf") == 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
+        if (minia.getInput()->getStr(STR_MPHF_TYPE).compare("none") != 0)  { minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");     }
 
         if (minia.getInput()->get(STR_URI_INPUT) != 0)
         {
