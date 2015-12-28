@@ -1,6 +1,7 @@
 \documentclass[a4paper]{article}
 \usepackage{fancyvrb}
 \usepackage{pdfpages}
+\usepackage{url}
 \begin{document}
 
 \newcommand\vitem[1][]{\SaveVerb[% to use verb in description
@@ -140,5 +141,13 @@ We estimate that the memory usage of Minia is roughly $1$ GB of RAM per gigabase
 
 Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive. 
 
+\section{Influences}
+
+This version of Minia could not exist without inspiration taken from these great pieces of software:
+\begin{itemize}
+    \item khmer \url{https://github.com/dib-lab/khmer}
+    \item KMC2 \url{https://github.com/marekkokot/KMC}
+    \item SPAdes \url{http://bioinf.spbau.ru/spades}
+\end{itemize}
 \end{document}
 
