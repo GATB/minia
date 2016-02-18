@@ -73,7 +73,7 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_back (assemblyParser);
 
     // when we input reads, dbgh5 is executed, so its options are needed here
-    IOptionsParser* graphParser = Graph::getOptionsParser(false, true);
+    IOptionsParser* graphParser = Graph::getOptionsParser(false);
 
     // we hide the STR_URI_INPUT option, otherwise we would have it twice
     if (IOptionsParser* p = graphParser->getParser(STR_URI_INPUT))  {  p->setVisible(false); }
@@ -249,7 +249,7 @@ void Minia::assemble (const Graph_type& graph)
 
     keepIsolatedTigs = getParser()->saw(STR_KEEP_ISOLATED);
 
-    string tipRemoval = "", bubbleRemoval = "", ECRemoval = "";
+    string str_tipRemoval = "", str_bubbleRemoval = "", str_ECRemoval = "";
 
 
     /** We get an iterator over all nodes . */
@@ -264,9 +264,9 @@ void Minia::assemble (const Graph_type& graph)
 
         graphSimplifications.simplify();
 
-        tipRemoval = graphSimplifications.tipRemoval;
-        bubbleRemoval = graphSimplifications.bubbleRemoval;
-        ECRemoval = graphSimplifications.ECRemoval;
+        str_tipRemoval = graphSimplifications.tipRemoval;
+        str_bubbleRemoval = graphSimplifications.bubbleRemoval;
+        str_ECRemoval = graphSimplifications.ECRemoval;
     }
 
     /** We loop over all nodes. */
@@ -298,9 +298,9 @@ void Minia::assemble (const Graph_type& graph)
     getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
 
     getInfo()->add (2, "graph simpification stats");
-    getInfo()->add (3, "tips removed",          "%s", tipRemoval.c_str());
-    getInfo()->add (3, "bubbles removed",          "%s", bubbleRemoval.c_str());
-    getInfo()->add (3, "EC removed",          "%s", ECRemoval.c_str());
+    getInfo()->add (3, "tips removed",          "%s", str_tipRemoval.c_str());
+    getInfo()->add (3, "bubbles removed",          "%s", str_bubbleRemoval.c_str());
+    getInfo()->add (3, "EC removed",          "%s", str_ECRemoval.c_str());
     getInfo()->add (2, "assembly traversal stats");
     getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
     getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
