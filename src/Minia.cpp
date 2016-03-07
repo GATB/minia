@@ -247,6 +247,7 @@ void Minia::assemble (const Graph_type& graph)
     maxContigLenLeft  = 0;
     maxContigLenRight = 0;
 
+    hasMphf = true;
     keepIsolatedTigs = getParser()->saw(STR_KEEP_ISOLATED);
 
     string str_tipRemoval = "", str_bubbleRemoval = "", str_ECRemoval = "";
