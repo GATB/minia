@@ -77,9 +77,10 @@ target_link_libraries(${PROJECT_NAME} ${gatb-core-libraries})
 ################################################################################
 #  DOC
 ################################################################################
-#if (NOT DEFINED SKIP_DOC)
-#    add_subdirectory (doc)
-#endif()
+set (SKIP_DOC 1)
+if (NOT DEFINED SKIP_DOC)
+    add_subdirectory (doc)
+endif()
 
 ################################################################################
 #  PACKAGING
@@ -96,7 +97,7 @@ SET (CPACK_PACKAGE_VERSION              "${gatb-tool-version}")
 SET (CPACK_GENERATOR                    "TGZ")
 SET (CPACK_SOURCE_GENERATOR             "TGZ")
 
-# We ignore unwated files for the source archive
+# We ignore unwanted files for the source archive
 SET (CPACK_SOURCE_IGNORE_FILES
     "^${PROJECT_SOURCE_DIR}/\\.git/"     ;
     "^${PROJECT_SOURCE_DIR}/\\.gitmodules" ;
@@ -111,7 +112,7 @@ SET (CPACK_SOURCE_IGNORE_FILES
 # We copy the project binary to the 'bin' directory
 INSTALL (TARGETS ${PROJECT_NAME} DESTINATION bin)
 INSTALL (DIRECTORY "${PROJECT_SOURCE_DIR}/test/" DESTINATION test)
-INSTALL (FILES INSTALL LICENSE README.md DESTINATION bin/..)
+INSTALL (FILES LICENSE README.md DESTINATION bin/..)
 
 # We include the "bin" tag into binary archive file name
 set (CPACK_PACKAGE_FILE_NAME  ${PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-bin-${CMAKE_SYSTEM_NAME})
