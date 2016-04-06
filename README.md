@@ -1,23 +1,24 @@
-Type `bin/minia` for usage.
+# Minia user manual
 
-short manual: ./manual/manual.pdf
+Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Minia produces results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet).
 
-we have set up a Q&A website, see the Support section in http://minia.genouest.org
+# LICENSE
+	*  GNU AFFERO GENERAL PUBLIC LICENSE
+	*  Copyright (C) 2015 INRIA
+	see the LICENSE file
 
-to contact an author directly: rayan.chikhi@ens-cachan.org
+# INSTALL
 
+CMake is required to compile Minia (http://www.cmake.org/cmake/resources/software.html)
 
-Compilation 
------------
+See the INSTALL file.
 
-A C++11-compatible compiler is necesary. (e.g. GCC >= 4.7)
+NOTE: If you retrieved a source archive, you can compile the project with 'sh INSTALL’
 
-If cmake complains that pdflatex/bibtex are absent, compile with: 
-    
-    cmake -DSKIP_DOC=1
+Compilation was tested with gcc and g++ version>=4.5 and clang version>=4.1
 
+# User manual	 
 
-Disregard this
---------------
+Type `minia` without any arguments for usage instructions.
 
-    cmake .. -DGFORGE_USER=chikhi -DMAJOR=2 -DMINOR=0 -DPATCH=1 && make -j 4
+Short manual: http://minia.genouest.org/files/minia.pdf
