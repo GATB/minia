@@ -34,12 +34,45 @@ function test()
     python compare_fasta.py "$file".solution.fa "$file".contigs.fa
 }
 
-#test X 5 unitig
-#echo "has a known bug where the AAAA node gets repeated a few times.., so it should print NOT EQUAL. but should print 6 below:"
-#grep ">" X.contigs.fa|wc -l
+# Test One
+test X 5 unitig
+echo "has a known issue where the AAAA node gets repeated a few times, so it should print NOT EQUAL. But should print '6', now:"
+lines=`grep ">" X.contigs.fa|wc -l`
+lines="$(sed -e 's/[[:space:]]*$//' <<<${lines})"
+echo "  $lines"
+if [ $lines -eq 6 ]; then
+  echo  PASSED
+else
+  echo  FAILED
+  exit 1
+fi
 
+# Test Two
 test tip 21 contig
+if [ $? -eq 0 ]; then
+  echo  PASSED
+else
+  echo  FAILED
+  exit 1
+fi
 
+# Test Three
 test bubble 21 contig
+if [ $? -eq 0 ]; then
+  echo  PASSED
+else
+  echo  FAILED
+  exit 1
+fi
 
-#test ec 21 contig
+# Test Four
+test ec 21 contig
+if [ $? -eq 0 ]; then
+  echo  PASSED
+else
+  echo  FAILED
+  exit 1
+fi
+
+# do some cleanup
+rm -f *.h5 *.contigs.fa
