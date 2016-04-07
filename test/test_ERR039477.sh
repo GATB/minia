@@ -46,14 +46,19 @@ fi
 # we launch minia; note that we use only one thread (no real time issues with
 # potential different results)
 ################################################################################
-#$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
+$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
 
 ################################################################################
 # we check the result
 ################################################################################
-md5sum ERR039477.fastq.contigs.fa > ERR039477.check
-# the following if for OSX only
-#md5 -r ERR039477.fastq.contigs.fa > ERR039477.check
+MD5SUM_PATH=`which md5sum`
+if [ ! -z "$MD5SUM_PATH" ] ; then
+  # Linux
+  md5sum ERR039477.fastq.contigs.fa > ERR039477.check
+else
+  # OSX: 'md5 -r' is equivalent to Linux md5sum
+  md5 -r ERR039477.fastq.contigs.fa > ERR039477.check
+fi
 
 diff ./ERR039477.md5 ./ERR039477.check
 
