@@ -14,20 +14,46 @@ else
 fi
 
 ################################################################################
-# we download some banks
+# we download a sample bank from EBI
 ################################################################################
-wget "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR039/ERR039477/ERR039477.fastq.gz"
+# if wget is not installed, you may use "curl -O ..."
+DATA_SAMPLE="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR039/ERR039477/ERR039477.fastq.gz"
+WGET_PATH=`which wget`
+echo ">>> Retrieving data sample: ${DATA_SAMPLE}"
+if [ ! -z "$WGET_PATH" ] ; then
+  echo "    using '$WGET_PATH'..."
+  if [ $SILENT_MODE=="true"  ] ; then
+    wget --quiet ${DATA_SAMPLE}
+  else
+    wget ${DATA_SAMPLE}
+  fi
+else
+   CURL_PATH=`which curl`
+  if [ ! -z "$CURL_PATH" ] ; then
+    echo "    using '$CURL_PATH'..."
+    if [ $SILENT_MODE=="true"  ] ; then
+      curl --silent -O ${DATA_SAMPLE}
+    else
+      curl -O ${DATA_SAMPLE}
+    fi
+  else
+    echo "    /!\ error: unable to find 'wget' or 'curl'"
+    exit 1
+  fi
+fi
 
 ################################################################################
 # we launch minia; note that we use only one thread (no real time issues with
 # potential different results)
 ################################################################################
-$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
+#$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
 
 ################################################################################
 # we check the result
 ################################################################################
-md5sum ERR039477.contigs.fa > ERR039477.check
+md5sum ERR039477.fastq.contigs.fa > ERR039477.check
+# the following if for OSX only
+#md5 -r ERR039477.fastq.contigs.fa > ERR039477.check
 
 diff ./ERR039477.md5 ./ERR039477.check
 
@@ -40,4 +66,4 @@ fi
 ################################################################################
 # clean up
 ################################################################################
-rm -f  ERR039477.fastq.gz  ERR039477.check
+rm -f  ERR039477.fastq.contigs.fa ERR039477.fastq.gz ERR039477.fastq.h5 ERR039477.check
