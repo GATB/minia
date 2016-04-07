@@ -71,6 +71,7 @@ if [ "$REF_CHKSUM" == "$CHKSUM" ]; then
    echo "TEST OK"
 else
    echo "TEST KO"
+   exit 1
 fi
 
 ################################################################################
