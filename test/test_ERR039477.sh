@@ -60,9 +60,14 @@ else
   md5 -r ERR039477.fastq.contigs.fa > ERR039477.check
 fi
 
-diff ./ERR039477.md5 ./ERR039477.check
+# 'diff' cannot be used: md5sum produces a single space between value and file
+# name whereas md5 produces two spaces...
+#   diff ./ERR039477.md5 ./ERR039477.check
 
-if [ $? -eq 0 ]; then
+REF_CHKSUM=`cut -d ' ' -f 1 ERR039477.md5`
+CHKSUM=`cut -d ' ' -f 1 ERR039477.check`
+
+if [ "$REF_CHKSUM" == "$CHKSUM" ]; then
    echo "TEST OK"
 else
    echo "TEST KO"
