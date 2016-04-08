@@ -7,6 +7,10 @@ Minia is a short-read assembler based on a de Bruijn graph, capable of assemblin
 	*  Copyright (C) 2015 INRIA
 	see the LICENSE file
 
+# Getting the latest source code
+
+    git clone --recursive https://github.com/GATB/minia.git
+
 # INSTALL
 
 CMake is required to compile Minia (http://www.cmake.org/cmake/resources/software.html)
