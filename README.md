@@ -24,6 +24,7 @@ c++ compiler; compilation was tested with gcc and g++ version>=4.5 (Linux) and c
     git clone --recursive https://github.com/GATB/minia.git
     
     # compile the code an run a simple test on your computer
+    cd minia
     sh INSTALL
 
 # User manual	 
