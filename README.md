@@ -16,7 +16,7 @@ Minia is a short-read assembler based on a de Bruijn graph, capable of assemblin
 
 CMake 2.6+; see http://www.cmake.org/cmake/resources/software.html
 
-c++ compiler; compilation was tested with gcc and g++ version>=4.5 (Linux) and clang version>=4.1 (Mac OSX). Here is the current status of source code (HEAD):
+c++ compiler; compilation was tested with gcc and g++ version>=4.5 (Linux) and clang version>=4.1 (Mac OSX).
 
 ## Instructions
 
