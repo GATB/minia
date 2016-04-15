@@ -32,3 +32,7 @@ c++ compiler; compilation was tested with gcc and g++ version>=4.5 (Linux) and c
 Type `minia` without any arguments for usage instructions.
 
 Short manual: http://minia.genouest.org/files/minia.pdf
+
+#Contact
+
+To contact a developer, request help, etc: https://gatb.inria.fr/contact/
