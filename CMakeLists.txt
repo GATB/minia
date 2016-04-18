@@ -6,9 +6,9 @@ cmake_minimum_required (VERSION 2.6)
 # The version number.
 ################################################################################
 # The default version number is the latest official build
-SET (gatb-tool_VERSION_MAJOR 1)
+SET (gatb-tool_VERSION_MAJOR 2)
 SET (gatb-tool_VERSION_MINOR 0)
-SET (gatb-tool_VERSION_PATCH 6)
+SET (gatb-tool_VERSION_PATCH 7)
 
 # But, it is possible to define another release number during a local build
 IF (DEFINED MAJOR)
