@@ -1,21 +1,38 @@
-Type `bin/minia` for usage.
+# Minia 
 
-short manual: ./manual/manual.pdf
+| **Linux** | **Mac OSX** |
+|-----------|-------------|
+[![Build Status](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-debian7-64bits-gcc-4.7/badge/icon)](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-debian7-64bits-gcc-4.7/) | [![Build Status](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-macos-10.9.5-gcc-4.2.1/badge/icon)](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-macos-10.9.5-gcc-4.2.1/)
 
-we have set up a Q&A website, see the Support section in http://minia.genouest.org
+[![License](http://img.shields.io/:license-affero-blue.svg)](http://www.gnu.org/licenses/agpl-3.0.en.html)
 
-to contact an author directly: rayan.chikhi@ens-cachan.org
+# What is Minia ?
 
+Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Minia produces results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet).
 
-Compilation tips
-----------------
+# Getting the latest source code
 
-If cmake complains that pdflatex/bibtex are absent, compile with: 
+## Requirements
+
+CMake 2.6+; see http://www.cmake.org/cmake/resources/software.html
+
+c++ compiler; compilation was tested with gcc and g++ version>=4.5 (Linux) and clang version>=4.1 (Mac OSX).
+
+## Instructions
+
+    # get a local copy of minia source code
+    git clone --recursive https://github.com/GATB/minia.git
     
-    cmake -DSKIP_DOC=1
+    # compile the code on your computer
+    cd minia
+    sh INSTALL
 
+# User manual	 
 
-Disregard this
---------------
+Type `minia` without any arguments for usage instructions.
 
-    cmake .. -DGFORGE_USER=chikhi -DMAJOR=2 -DMINOR=0 -DPATCH=1 && make -j 4
+Short manual: http://minia.genouest.org/files/minia.pdf
+
+#Contact
+
+To contact a developer, request help, etc: https://gatb.inria.fr/contact/

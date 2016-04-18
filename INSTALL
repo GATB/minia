@@ -1,0 +1,20 @@
+# CMake is required to compile software (http://www.cmake.org/cmake/resources/software.html)
+# you can install software by executing this file:  sh INSTALL
+#
+
+# Prepare GATB sub-module
+git submodule init
+git submodule update
+
+# Prepare directories:
+rm -rf build
+mkdir  build
+
+# Go in the 'build' directory
+cd build
+
+# Prepare the makefile
+cmake ..
+
+# Run the newly created makefile:
+make -j8
