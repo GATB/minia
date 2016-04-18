@@ -111,7 +111,6 @@ SET (CPACK_SOURCE_IGNORE_FILES
 
 # We copy the project binary to the 'bin' directory
 INSTALL (TARGETS ${PROJECT_NAME} DESTINATION bin)
-INSTALL (DIRECTORY "${PROJECT_SOURCE_DIR}/test/" DESTINATION test)
 INSTALL (FILES LICENSE README.md DESTINATION bin/..)
 
 # We include the "bin" tag into binary archive file name
