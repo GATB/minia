@@ -111,6 +111,11 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     {
         TIME_INFO (minia.getTimeInfo(), "graph construction");
 
+        //Warning if kmer size >128 cascading debloom does not work
+        if(minia.getInput()->getInt(STR_KMER_SIZE)>128){
+            minia.getInput()->get(STR_DEBLOOM_TYPE)->value="original";
+        }
+ 
         // graph to not construct branching nodes
         minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");
 
