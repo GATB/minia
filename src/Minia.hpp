@@ -40,7 +40,7 @@ public:
 
     /** */
     template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
-    void assemble (const Graph_type& graph);
+    void assemble (/*const*/ Graph_type& graph);
     
 private:
 

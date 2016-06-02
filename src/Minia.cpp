@@ -202,7 +202,7 @@ void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,GraphDat
 ** REMARKS :
 *********************************************************************/
 template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
-void Minia::assemble (const Graph_type& graph)
+void Minia::assemble (/*const, removed because Simplifications isn't const anymore*/ Graph_type& graph)
 {
     TIME_INFO (getTimeInfo(), "assembly");
 
