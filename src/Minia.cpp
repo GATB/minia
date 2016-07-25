@@ -23,6 +23,7 @@
 
 #include <Minia.hpp>
 #include <gatb/debruijn/impl/Simplifications.hpp>
+#include <gatb/debruijn/impl/GraphUnitigs.hpp>
 
 #include <fstream>
 #include <string>
@@ -104,9 +105,13 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 {
     Minia&       minia = parameter.minia;
 
-    typedef GraphTemplate<NodeFast<span>,EdgeFast<span>,GraphDataVariantFast<span>> GraphFast;
+    // selection HERE
+    //typedef GraphTemplate<NodeFast<span>,EdgeFast<span>,GraphDataVariantFast<span>> GraphType;
+    typedef GraphUnitigsTemplate<span> GraphType;
 
-    GraphFast graph;
+    GraphType graph;
+    
+    minia.hasUnitigs = typeid(graph) == typeid(GraphUnitigsTemplate<span>);
 
     {
         TIME_INFO (minia.getTimeInfo(), "graph construction");
@@ -121,7 +126,7 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 
         if (minia.getInput()->get(STR_URI_INPUT) != 0)
         {
-            graph = GraphFast::create (minia.getInput());
+            graph = GraphType::create (minia.getInput());
         }
         else
         {
@@ -129,11 +134,12 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
         }
     }
 
-    // new    
-    graph.precomputeAdjacency(minia.getInput()->getInt(STR_NB_CORES));
+    if (!minia.hasUnitigs)   // graphUnitigs doesn't need adjacency precomputation
+        // new
+        graph.precomputeAdjacency(minia.getInput()->getInt(STR_NB_CORES));
 
     /** We build the contigs. */
-    minia.assemble<GraphFast, NodeFast<span>, EdgeFast<span>, GraphDataVariantFast<span> >(graph);
+    minia.assemble<GraphType, NodeFast<span>, EdgeFast<span>, span>(graph);
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
@@ -150,9 +156,31 @@ void Minia::execute ()
 }
 
 
-template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
-void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,GraphDataVariant> *traversal, const Graph_type& graph, IBank *outputBank)
+template <typename Graph_type, typename Node, typename Edge, size_t span>
+void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,Graph_type> *traversal, Graph_type& graph, IBank *outputBank)
 {
+    unsigned int isolatedCutoff = std::max(2*(unsigned int)graph.getKmerSize(), (unsigned int)150);
+
+    if (typeid(graph) == typeid(GraphUnitigsTemplate<span>))
+    {
+        bool isolatedLeft, isolatedRight;
+        string sequence = graph.simplePathSequence(startingNode, isolatedLeft, isolatedRight);
+        Sequence seq (Data::ASCII);
+        seq.getData().setRef ((char*)sequence.c_str(), sequence.size());
+        NodesDeleter<Node,Edge,Graph_type> dummynodesDeleter(graph, 1, 1); // dummy
+        graph.simplePathDelete(startingNode, DIR_OUTCOMING, dummynodesDeleter); // avoid traversing that node or the opposite unitig extremity later
+        unsigned int lenTotal = sequence.size();
+        if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
+        {
+            outputBank->insert (seq);
+            nbContigs += 1;
+            totalNt   += lenTotal;
+            if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
+        }
+        else
+            nbSmallContigs++;
+        return;
+    }
 
     Path_t<Node> consensusRight;
     Path_t<Node> consensusLeft;
@@ -166,13 +194,12 @@ void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,GraphDat
     bool isolatedRight = traversal->deadend;
 
     unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
-    unsigned int isolatedCutoff = std::max(2*(unsigned int)graph.getKmerSize(), (unsigned int)150);
 
     /** We keep this contig if its not [shorter than isolatedCutoff and isolated (SPAdes-like criterion)], or if -keep-isolated passed */
     if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
     {
         /** We create the contig sequence. */
-        buildSequence<Graph_type,Node,Edge,GraphDataVariant> (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
+        buildSequence<Graph_type,Node,Edge> (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
 
         /** We add the sequence into the output bank. */
         outputBank->insert (seq);
@@ -201,7 +228,7 @@ void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,GraphDat
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+template <typename Graph_type, typename Node, typename Edge, size_t span>
 void Minia::assemble (/*const, removed because Simplifications isn't const anymore*/ Graph_type& graph)
 {
     TIME_INFO (getTimeInfo(), "assembly");
@@ -212,9 +239,9 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
                     )+ ".contigs.fa";
 
     /** We setup default values if needed. */
-    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxLen);     }
-    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxDepth);   }
-    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, TraversalTemplate<Node,Edge,GraphDataVariant>::defaultMaxBreadth); }
+    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  TraversalTemplate<Node,Edge,Graph_type>::defaultMaxLen);     }
+    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   TraversalTemplate<Node,Edge,Graph_type>::defaultMaxDepth);   }
+    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, TraversalTemplate<Node,Edge,Graph_type>::defaultMaxBreadth); }
 
     /** We create the output bank. Note that we could make this a little bit prettier
      *  => possibility to save the contigs in specific output format (other than fasta).  */
@@ -224,18 +251,18 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    TerminatorTemplate<Node,Edge,GraphDataVariant> *terminator;
+    TerminatorTemplate<Node,Edge,Graph_type> *terminator;
     bool simplifyGraph = false;
 
     /* New Minia traversal mode: use MPHF to mark visited nodes. output all unitigs of simplified graph. doesn't care about -starter option */
-    terminator = new MPHFTerminatorTemplate<Node,Edge,GraphDataVariant>(graph);
+    terminator = new MPHFTerminatorTemplate<Node,Edge,Graph_type>(graph);
     string traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
     simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
 
     LOCAL (terminator);
 
     /** We create the Traversal instance according to the user choice. */
-    TraversalTemplate<Node,Edge,GraphDataVariant>* traversal = TraversalTemplate<Node,Edge,GraphDataVariant>::create (
+    TraversalTemplate<Node,Edge,Graph_type>* traversal = TraversalTemplate<Node,Edge,Graph_type>::create (
         traversalKind,
         graph,
         *terminator,
@@ -259,14 +286,14 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
 
 
     /** We get an iterator over all nodes . */
-    ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem,Node,Edge,GraphDataVariant> itNode (graph.Graph_type::iterator(), progressFormat0);
+    ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem> itNode (graph.Graph_type::iterator(), progressFormat0);
 
     // if we want unitigs, then don't simplify the graph; else do it
     if (simplifyGraph)
     {
         int nbCores = getInput()->getInt(STR_NB_CORES);
         bool verbose=true;
-        Simplifications<Node,Edge,GraphDataVariant> graphSimplifications(graph, nbCores, verbose);
+        Simplifications<Graph_type,Node,Edge> graphSimplifications(graph, nbCores, verbose);
 
         graphSimplifications.simplify();
 
@@ -281,12 +308,12 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
         Node node = itNode.item();
 
         // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
-        if (terminator->is_marked (node))  {  continue;   }
+        if ((!hasUnitigs) && terminator->is_marked (node))  {  continue;   }
         if (graph.isNodeDeleted(node)) { continue; }
 
         DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
 
-        assembleFrom(node, traversal, graph, outputBank);
+        assembleFrom<Graph_type, Node, Edge, span>(node, traversal, graph, outputBank);
     }
 
     /** We add the input parameters to the global properties. */
@@ -322,7 +349,7 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+template <typename Graph_type, typename Node, typename Edge>
 void Minia::buildSequence (
     const Graph_type& graph,
     Node& startingNode,

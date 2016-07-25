@@ -23,6 +23,7 @@
 /********************************************************************************/
 
 #include <gatb/gatb_core.hpp>
+#include <gatb/debruijn/impl/GraphUnitigs.hpp>
 
 /********************************************************************************/
 
@@ -39,17 +40,18 @@ public:
     void  execute ();
 
     /** */
-    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+    template <typename Graph_type, typename Node, typename Edge, size_t span>
     void assemble (/*const*/ Graph_type& graph);
     
+    bool hasUnitigs;
 private:
 
     /** */
-    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
-    void assembleFrom (Node startingNode, TraversalTemplate<Node,Edge,GraphDataVariant> *traversal, const Graph_type& graph, IBank *outputBank);
+    template <typename Graph_type, typename Node, typename Edge, size_t span>
+    void assembleFrom (Node startingNode, TraversalTemplate<Node,Edge,Graph_type> *traversal, Graph_type& graph, IBank *outputBank);
 
     /** */
-    template <typename Graph_type, typename Node, typename Edge, typename GraphDataVariant>
+    template <typename Graph_type, typename Node, typename Edge>
     void buildSequence (
         const Graph_type& graph,
         Node& startingNode,
