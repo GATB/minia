@@ -108,7 +108,7 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     // selection HERE
     //typedef GraphTemplate<NodeFast<span>,EdgeFast<span>,GraphDataVariantFast<span>> GraphType;
     typedef GraphUnitigsTemplate<span> GraphType;
-
+    
     GraphType graph;
     
     minia.hasUnitigs = typeid(graph) == typeid(GraphUnitigsTemplate<span>);
@@ -164,11 +164,16 @@ void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,Graph_ty
     if (typeid(graph) == typeid(GraphUnitigsTemplate<span>))
     {
         bool isolatedLeft, isolatedRight;
-        string sequence = graph.simplePathSequence(startingNode, isolatedLeft, isolatedRight);
+        string sequence = graph.simplePathLongest(startingNode, isolatedLeft, isolatedRight, true);
+        float coverage = 0; // FIXME
+
         Sequence seq (Data::ASCII);
         seq.getData().setRef ((char*)sequence.c_str(), sequence.size());
-        NodesDeleter<Node,Edge,Graph_type> dummynodesDeleter(graph, 1, 1); // dummy
-        graph.simplePathDelete(startingNode, DIR_OUTCOMING, dummynodesDeleter); // avoid traversing that node or the opposite unitig extremity later
+        /** We set the sequence comment. */
+        stringstream ss1;
+        // spades-like header (compatible with bandage) 
+        ss1 << "NODE_"<< nbContigs + 1 << "_length_" << sequence.size() << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
+        seq._comment = ss1.str();
         unsigned int lenTotal = sequence.size();
         if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
         {
