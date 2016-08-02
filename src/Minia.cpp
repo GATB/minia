@@ -56,6 +56,11 @@ static const char* progressFormat0 = "Minia : assembly";
 *********************************************************************/
 Minia::Minia () : Tool ("minia")
 {
+
+#ifdef GIT_SHA1
+    std::cout << "Minia 3, git commit " << GIT_SHA1 << std::endl;
+#endif
+
 	// reinit the parser to get rid of options added by the Tool class, as we'll add them again in the Graph parser
 	setParser (new OptionsParser ("minia")); 
 

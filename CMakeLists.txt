@@ -6,9 +6,9 @@ cmake_minimum_required (VERSION 2.6)
 # The version number.
 ################################################################################
 # The default version number is the latest official build
-SET (gatb-tool_VERSION_MAJOR 1)
-SET (gatb-tool_VERSION_MINOR 0)
-SET (gatb-tool_VERSION_PATCH 6)
+SET (gatb-tool_VERSION_MAJOR 3)
+SET (gatb-tool_VERSION_MINOR 1)
+SET (gatb-tool_VERSION_PATCH 0)
 
 # But, it is possible to define another release number during a local build
 IF (DEFINED MAJOR)
@@ -28,6 +28,17 @@ IF (DEFINED JENKINS_TAG)
     SET (gatb-tool-version ${JENKINS_TAG})
 ENDIF()
 
+#############################
+# getting git version
+#from http://stackoverflow.com/questions/1435953/how-can-i-pass-git-sha1-to-compiler-as-definition-using-cmake
+exec_program(
+    "git"
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ARGS "rev-parse --short HEAD"
+    OUTPUT_VARIABLE VERSION_SHA1 )
+
+add_definitions( -DGIT_SHA1="${VERSION_SHA1}" )
+
 ################################################################################
 # Define cmake modules directory
 ################################################################################
@@ -40,6 +51,7 @@ SET (CMAKE_MODULE_PATH ${GATB_CORE_HOME}/cmake)
 
 # One can uncomment this line and set the wanted values
 #set (KSIZE_LIST "32   64   96  128  160  192  224  256")
+# by default, it's compiling up to 128.
 
 ################################################################################
 # THIRD PARTIES
