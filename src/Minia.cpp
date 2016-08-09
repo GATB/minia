@@ -169,8 +169,8 @@ void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,Graph_ty
     if (typeid(graph) == typeid(GraphUnitigsTemplate<span>))
     {
         bool isolatedLeft, isolatedRight;
-        string sequence = graph.simplePathLongest(startingNode, isolatedLeft, isolatedRight, true);
-        float coverage = 0; // FIXME
+        float coverage = 0;
+        string sequence = graph.simplePathBothDirections(startingNode, isolatedLeft, isolatedRight, true, coverage);
 
         Sequence seq (Data::ASCII);
         seq.getData().setRef ((char*)sequence.c_str(), sequence.size());
@@ -317,8 +317,14 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
     {
         Node node = itNode.item();
 
-        // in this setting it's very simple, we don't even need NodeSelector anymore. Just assemble from any non-deleted unmarked node
-        if ((!hasUnitigs) && terminator->is_marked (node))  {  continue;   }
+        if (hasUnitigs)
+        {
+            if (graph.unitigIsMarked(node))  {  continue;   }
+        }
+        else
+        {
+            if (terminator->is_marked (node))  {  continue;   }
+        }
         if (graph.isNodeDeleted(node)) { continue; }
 
         DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
