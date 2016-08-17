@@ -37,10 +37,6 @@ using namespace std;
 /********************************************************************************/
 
 static const char* STR_TRAVERSAL_KIND  = "-traversal";
-static const char* STR_STARTER_KIND    = "-starter";
-static const char* STR_CONTIG_MAX_LEN  = "-contig-max-len";
-static const char* STR_BFS_MAX_DEPTH   = "-bfs-max-depth";
-static const char* STR_BFS_MAX_BREADTH = "-bfs-max-breadth";
 static const char* STR_FASTA_LINE_SIZE = "-fasta-line";
 static const char* STR_KEEP_ISOLATED   = "-keep-isolated";
 
@@ -68,10 +64,6 @@ Minia::Minia () : Tool ("minia")
 	OptionsParser* assemblyParser = new OptionsParser ("assembly");
 
 	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per line in fasta output (0 means one line)",  false, "0"));
-	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_BREADTH, "maximum breadth for BFS",               false,  "0"         ));
-	assemblyParser->push_front (new OptionOneParam (STR_BFS_MAX_DEPTH,   "maximum depth for BFS",                 false,  "0"         ));
-	assemblyParser->push_front (new OptionOneParam (STR_CONTIG_MAX_LEN,  "maximum length for contigs",            false,  "0"         ));
-	assemblyParser->push_front (new OptionOneParam (STR_STARTER_KIND,    "starting node ('best', 'simple')",      false,  "best"      ));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
 	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= max(2k, 150 bp)) isolated output sequences", false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed) or hdf5 file",   false));
@@ -84,7 +76,7 @@ Minia::Minia () : Tool ("minia")
     // we hide the STR_URI_INPUT option, otherwise we would have it twice
     if (IOptionsParser* p = graphParser->getParser(STR_URI_INPUT))  {  p->setVisible(false); }
 
-    // we set the default value for the abundance min
+    // we set the default value for the abundance min (2)
     if (Option* p = dynamic_cast<Option*> (graphParser->getParser(STR_KMER_ABUNDANCE_MIN)))  {  p->setDefaultValue ("2"); }
 
     getParser()->push_back(graphParser, 1);
@@ -104,7 +96,6 @@ struct Parameter
     Minia&         minia;
 };
 
-// TODO refactor: can it be done that MiniaFunctor is a member of Minia class?
 template<size_t span> 
 struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 {
@@ -116,18 +107,8 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     
     GraphType graph;
     
-    minia.hasUnitigs = typeid(graph) == typeid(GraphUnitigsTemplate<span>);
-
     {
         TIME_INFO (minia.getTimeInfo(), "graph construction");
-
-        //Warning if kmer size >128 cascading debloom does not work
-        if(minia.getInput()->getInt(STR_KMER_SIZE)>128){
-            minia.getInput()->get(STR_DEBLOOM_TYPE)->value="original";
-        }
- 
-        // graph to not construct branching nodes
-        minia.getInput()->setStr(STR_BRANCHING_TYPE,  "none");
 
         if (minia.getInput()->get(STR_URI_INPUT) != 0)
         {
@@ -139,12 +120,8 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
         }
     }
 
-    if (!minia.hasUnitigs)   // graphUnitigs doesn't need adjacency precomputation
-        // new
-        graph.precomputeAdjacency(minia.getInput()->getInt(STR_NB_CORES));
-
     /** We build the contigs. */
-    minia.assemble<GraphType, NodeFast<span>, EdgeFast<span>, span>(graph);
+    minia.assemble<GraphType, NodeGU, EdgeGU, span>(graph);
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
@@ -162,72 +139,32 @@ void Minia::execute ()
 
 
 template <typename Graph_type, typename Node, typename Edge, size_t span>
-void Minia::assembleFrom(Node startingNode, TraversalTemplate<Node,Edge,Graph_type> *traversal, Graph_type& graph, IBank *outputBank)
+void Minia::assembleFrom(Node startingNode, Graph_type& graph, IBank *outputBank)
 {
     unsigned int isolatedCutoff = std::max(2*(unsigned int)graph.getKmerSize(), (unsigned int)150);
 
-    if (typeid(graph) == typeid(GraphUnitigsTemplate<span>))
-    {
-        bool isolatedLeft, isolatedRight;
-        float coverage = 0;
-        string sequence = graph.simplePathBothDirections(startingNode, isolatedLeft, isolatedRight, true, coverage);
+    bool isolatedLeft, isolatedRight;
+    float coverage = 0;
+    string sequence = graph.simplePathBothDirections(startingNode, isolatedLeft, isolatedRight, true, coverage);
 
-        Sequence seq (Data::ASCII);
-        seq.getData().setRef ((char*)sequence.c_str(), sequence.size());
-        /** We set the sequence comment. */
-        stringstream ss1;
-        // spades-like header (compatible with bandage) 
-        ss1 << "NODE_"<< nbContigs + 1 << "_length_" << sequence.size() << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
-        seq._comment = ss1.str();
-        unsigned int lenTotal = sequence.size();
-        if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
-        {
-            outputBank->insert (seq);
-            nbContigs += 1;
-            totalNt   += lenTotal;
-            if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
-        }
-        else
-            nbSmallContigs++;
-        return;
-    }
-
-    Path_t<Node> consensusRight;
-    Path_t<Node> consensusLeft;
     Sequence seq (Data::ASCII);
-
-    /** We compute right and left extensions of the starting node. */
-    unsigned int lenRight = traversal->traverse (startingNode,                DIR_OUTCOMING, consensusRight);
-    bool isolatedLeft = traversal->deadend;
-    Node rev_node = graph.reverse(startingNode);
-    unsigned int lenLeft  = traversal->traverse (rev_node, DIR_OUTCOMING, consensusLeft);
-    bool isolatedRight = traversal->deadend;
-
-    unsigned int lenTotal = graph.getKmerSize() + lenRight + lenLeft;
-
-    /** We keep this contig if its not [shorter than isolatedCutoff and isolated (SPAdes-like criterion)], or if -keep-isolated passed */
+    seq.getData().setRef ((char*)sequence.c_str(), sequence.size());
+    /** We set the sequence comment. */
+    stringstream ss1;
+    // spades-like header (compatible with bandage) 
+    ss1 << "NODE_"<< nbContigs + 1 << "_length_" << sequence.size() << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
+    seq._comment = ss1.str();
+    unsigned int lenTotal = sequence.size();
     if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
     {
-        /** We create the contig sequence. */
-        buildSequence<Graph_type,Node,Edge> (graph, startingNode, lenTotal, nbContigs, consensusRight, consensusLeft, seq);
-
-        /** We add the sequence into the output bank. */
         outputBank->insert (seq);
-
         nbContigs += 1;
         totalNt   += lenTotal;
-
-        traversal->commit_stats();
-
         if (lenTotal > maxContigLen)      { maxContigLen      = lenTotal;   }
-        if (lenLeft  > maxContigLenLeft)  { maxContigLenLeft  = lenLeft;    }
-        if (lenRight > maxContigLenRight) { maxContigLenRight = lenRight;   }
     }
     else
-    {
-        traversal->revert_stats();
         nbSmallContigs++;
-    }
+    return;
 }
 
 /*********************************************************************
@@ -248,11 +185,6 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
         System::file().getBaseName (getInput()->getStr(STR_URI_INPUT)) 
                     )+ ".contigs.fa";
 
-    /** We setup default values if needed. */
-    if (getInput()->getInt (STR_CONTIG_MAX_LEN)  == 0)  { getInput()->setInt (STR_CONTIG_MAX_LEN,  TraversalTemplate<Node,Edge,Graph_type>::defaultMaxLen);     }
-    if (getInput()->getInt (STR_BFS_MAX_DEPTH)   == 0)  { getInput()->setInt (STR_BFS_MAX_DEPTH,   TraversalTemplate<Node,Edge,Graph_type>::defaultMaxDepth);   }
-    if (getInput()->getInt (STR_BFS_MAX_BREADTH) == 0)  { getInput()->setInt (STR_BFS_MAX_BREADTH, TraversalTemplate<Node,Edge,Graph_type>::defaultMaxBreadth); }
-
     /** We create the output bank. Note that we could make this a little bit prettier
      *  => possibility to save the contigs in specific output format (other than fasta).  */
     IBank* outputBank = new BankFasta (output);
@@ -261,39 +193,19 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
     /** We set the fasta line size. */
     BankFasta::setDataLineSize (getInput()->getInt (STR_FASTA_LINE_SIZE));
 
-    TerminatorTemplate<Node,Edge,Graph_type> *terminator;
     bool simplifyGraph = false;
 
-    /* New Minia traversal mode: use MPHF to mark visited nodes. output all unitigs of simplified graph. doesn't care about -starter option */
-    terminator = new MPHFTerminatorTemplate<Node,Edge,Graph_type>(graph);
     string traversalKind = "unitig"; // we output unitigs of the simplified graph or the original graph
     simplifyGraph = getInput()->getStr(STR_TRAVERSAL_KIND).compare("contig") == 0;
-
-    LOCAL (terminator);
-
-    /** We create the Traversal instance according to the user choice. */
-    TraversalTemplate<Node,Edge,Graph_type>* traversal = TraversalTemplate<Node,Edge,Graph_type>::create (
-        traversalKind,
-        graph,
-        *terminator,
-        getInput()->getInt (STR_CONTIG_MAX_LEN),
-        getInput()->getInt (STR_BFS_MAX_DEPTH),
-        getInput()->getInt (STR_BFS_MAX_BREADTH)
-    );
-    LOCAL (traversal);
 
     nbContigs         = 0;
     nbSmallContigs    = 0;
     totalNt           = 0;
     maxContigLen      = 0;
-    maxContigLenLeft  = 0;
-    maxContigLenRight = 0;
 
-    hasMphf = true;
     keepIsolatedTigs = getParser()->saw(STR_KEEP_ISOLATED);
 
     string str_tipRemoval = "", str_bubbleRemoval = "", str_ECRemoval = "";
-
 
     /** We get an iterator over all nodes . */
     ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem> itNode (graph.Graph_type::iterator(), progressFormat0);
@@ -312,24 +224,19 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
         str_ECRemoval = graphSimplifications.ECRemoval;
     }
 
+    //graph.debugPrintAllUnitigs(); // debugging
+
     /** We loop over all nodes. */
     for (itNode.first(); !itNode.isDone(); itNode.next())
     {
         Node node = itNode.item();
 
-        if (hasUnitigs)
-        {
-            if (graph.unitigIsMarked(node))  {  continue;   }
-        }
-        else
-        {
-            if (terminator->is_marked (node))  {  continue;   }
-        }
+        if (graph.unitigIsMarked(node))  {  continue;   }
         if (graph.isNodeDeleted(node)) { continue; }
 
         DEBUG ((cout << endl << "-------------------------- " << graph.toString (node) << " -------------------------" << endl));
 
-        assembleFrom<Graph_type, Node, Edge, span>(node, traversal, graph, outputBank);
+        assembleFrom<Graph_type, Node, Edge, span>(node, graph, outputBank);
     }
 
     /** We add the input parameters to the global properties. */
@@ -338,98 +245,16 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
     getInfo()->add (2, "traversal",         "%s", getInput()->getStr(STR_TRAVERSAL_KIND).c_str());
-    getInfo()->add (2, "using_mphf",    "%d", hasMphf); // should always be true
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
     getInfo()->add (2, "max_length",        "%d", maxContigLen);
-    getInfo()->add (2, "max_length_left",   "%d", maxContigLenLeft);
-    getInfo()->add (2, "max_length_right",  "%d", maxContigLenRight);
 
     getInfo()->add (2, "graph simpification stats");
     getInfo()->add (3, "tips removed",          "%s", str_tipRemoval.c_str());
     getInfo()->add (3, "bubbles removed",          "%s", str_bubbleRemoval.c_str());
     getInfo()->add (3, "EC removed",          "%s", str_ECRemoval.c_str());
     getInfo()->add (2, "assembly traversal stats");
-    getInfo()->add (3, "no extension",             "%d", traversal->final_stats.couldnt_no_extension);
-    getInfo()->add (3, "out-branching",       "%d", traversal->final_stats.couldnt_outbranching);
-    getInfo()->add (3, "in-branching",       "%d", traversal->final_stats.couldnt_inbranching);
 
 }
 
-/*********************************************************************
-** METHOD  :
-** PURPOSE :
-** INPUT   :
-** OUTPUT  :
-** RETURN  :
-** REMARKS :
-*********************************************************************/
-template <typename Graph_type, typename Node, typename Edge>
-void Minia::buildSequence (
-    const Graph_type& graph,
-    Node& startingNode,
-    size_t length,
-    size_t nbContigs,
-    const Path_t<Node>& consensusRight,
-    const Path_t<Node>& consensusLeft,
-    Sequence& seq
-)
-{
-    /** Shortcuts. */
-    Data&  data     = seq.getData();
-    size_t lenRight = consensusRight.size();
-    size_t lenLeft  = consensusLeft.size ();
-
-    /** We set the data length. */
-    seq.getData().resize (length);
-
-    string sequence = "";
-    size_t idx=0;
-
-    /** We dump the left part. */
-    for (size_t i=0; i<lenLeft;  i++)  {  
-        unsigned char c = ascii (reverse(consensusLeft [lenLeft-i-1]));
-        data[idx++] = c; 
-        sequence += c;
-    }
-
-    /** We dump the starting node. */
-    string node = graph.toString (startingNode);
-    for (size_t i=0; i<node.size(); i++)  { 
-        data[idx++] = node[i]; 
-        sequence += node[i];
-    }
-
-    /** We dump the right part. */
-    for (size_t i=0; i<lenRight; i++)  {  
-        unsigned char c = ascii (consensusRight[i]);
-        data[idx++] = c;
-        sequence += c;
-    }
-
-    // get coverage
-    double coverage = 0;
-    bool computeCoverage = true;
-    if (computeCoverage)
-    {
-        for (unsigned int i = 0; i < length - graph.getKmerSize() + 1; i ++)
-        {
-            // taken from Traversal.cpp (might be good to factorize into something like getCoverage(string))
-            Node node = graph.buildNode((char *)(sequence.c_str()), i); 
-            /* I know that buildNode was supposed to be used for test purpose only,
-             * but couldn't find anything else to transform my substring into a kmer */
-
-            unsigned char abundance = graph.queryAbundance(node);
-            coverage += (unsigned int)abundance;
-
-        }
-        coverage /= length - graph.getKmerSize() + 1;
-    }
-
-    /** We set the sequence comment. */
-    stringstream ss1;
-    // spades-like header (compatible with bandage) 
-    ss1 << "NODE_"<< nbContigs + 1 << "_length_" << length << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
-    seq._comment = ss1.str();
-}

@@ -48,28 +48,13 @@ private:
 
     /** */
     template <typename Graph_type, typename Node, typename Edge, size_t span>
-    void assembleFrom (Node startingNode, TraversalTemplate<Node,Edge,Graph_type> *traversal, Graph_type& graph, IBank *outputBank);
+    void assembleFrom (Node startingNode, Graph_type& graph, IBank *outputBank);
 
-    /** */
-    template <typename Graph_type, typename Node, typename Edge>
-    void buildSequence (
-        const Graph_type& graph,
-        Node& startingNode,
-        size_t length,
-        size_t nbContigs,
-        const Path_t<Node>& consensusRight,
-        const Path_t<Node>& consensusLeft,
-        Sequence& seq
-    );
-
-    bool hasMphf;
     bool keepIsolatedTigs;
     u_int64_t nbContigs         ;
     u_int64_t nbSmallContigs    ;
     u_int64_t totalNt           ;
     u_int64_t maxContigLen      ;
-    u_int64_t maxContigLenLeft  ;
-    u_int64_t maxContigLenRight ;
 
 };
 

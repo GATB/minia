@@ -24,7 +24,7 @@ function test()
     file=$1
     k=$2
     traversal=$3
-    args="-in "$file".fa -kmer-size "$k" -abundance-min 1 -traversal $traversal"
+    args="-in "$file".fa -kmer-size "$k" -abundance-min 1 -traversal $traversal -minimizer-size 3"
     if [[ $verbose == "0" ]]
     then
         eval $bindir/minia $args > /dev/null 2>/dev/null

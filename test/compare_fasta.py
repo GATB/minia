@@ -23,5 +23,14 @@ s2 = read_seqs(fasta2)
 if s1 == s2:
     sys.exit(0)
 
+if len(s1) == len(s2) and len(s1) == 1:
+    # special case, e.g. for read50 and genome10k, let's see if one is included in the other
+    seq1= s1.copy().pop()
+    seq2= s2.copy().pop()
+    if seq1 in seq2 or seq2 in seq1:
+        print("one seq is perfectly included in the other")
+    else:
+        print("BAD: one sequence doesn't exactly match the other")
+
 print("NOT EQUAL: %d sequence(s) in %s not in %s" % (len(s1.difference(s2)), fasta1, fasta2))
 sys.exit(1)
