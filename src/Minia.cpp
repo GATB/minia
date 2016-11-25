@@ -78,6 +78,13 @@ Minia::Minia () : Tool ("minia")
 
     // we set the default value for the abundance min (2)
     if (Option* p = dynamic_cast<Option*> (graphParser->getParser(STR_KMER_ABUNDANCE_MIN)))  {  p->setDefaultValue ("2"); }
+    
+    // through an undocumented environment variable, we can set the temporary path (useful to not have to specify -out-tmp every time)
+    char *hidden_env_variable_out_tmp = std::getenv("MINIA_OUT_TMP");
+    if (hidden_env_variable_out_tmp)
+    {
+        if (Option* p = dynamic_cast<Option*> (graphParser->getParser(STR_URI_OUTPUT_TMP)))  {  p->setDefaultValue ((string)hidden_env_variable_out_tmp); }
+    }
 
     getParser()->push_back(graphParser, 1);
 }
@@ -101,7 +108,7 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 {
     Minia&       minia = parameter.minia;
 
-    // selection HERE
+    // selection of type of graph is done HERE
     //typedef GraphTemplate<NodeFast<span>,EdgeFast<span>,GraphDataVariantFast<span>> GraphType;
     typedef GraphUnitigsTemplate<span> GraphType;
     
