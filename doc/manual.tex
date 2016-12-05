@@ -96,7 +96,7 @@ Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source
 rm -Rf CMake* && cmake -DKSIZE_LIST="32   64   96  128  160  192  224  256  320" .. && make -j 4
 \end{verbatim}
 
-The list of kmers should only contain multiples of 32. Intermediate values are create optimized code for smaller $k$ values.
+The list of kmers should only contain multiples of 32. Intermediate values are used to create optimized code for k values that are shorter than the max. The last k value specifies the highest kmer size that can effectively be used in this compiled version of Minia. Apart from that, whatever k values are in this list do not affect the assembly quality in any way.
 
 \item \emph{FASTA/FASTQ}
 
