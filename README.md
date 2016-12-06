@@ -36,6 +36,8 @@ A more complete manual:
     cd doc 
     pdflatex manual.tex
 
+If you cannot compile it: http://minia.genouest.org/files/minia.pdf
+
 #Contact
 
 To contact a developer, request help, etc: https://gatb.inria.fr/contact/
