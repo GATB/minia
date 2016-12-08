@@ -93,7 +93,9 @@ The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \ver
 
 Minia supports arbitrary large $k$-mer lengths. To compile Minia from the source, to support $k$-mer lengths up to, say, 320, type this in the build folder:
 \begin{verbatim}
-rm -Rf CMake* && cmake -DKSIZE_LIST="32   64   96  128  160  192  224  256  320" .. && make -j 4
+rm -Rf CMake*
+cmake -DKSIZE_LIST="32   64   96  128  160  192  224  256  320" ..
+make -j 4
 \end{verbatim}
 
 The list of kmers should only contain multiples of 32. Intermediate values are used to create optimized code for k values that are shorter than the max. The last k value specifies the highest kmer size that can effectively be used in this compiled version of Minia. Apart from that, whatever k values are in this list do not affect the assembly quality in any way.
@@ -132,6 +134,10 @@ Minia supports the creation of unitigs. Use the following command line:
 
 The \verb+-starter simple+ option is to turn off Minia's heuristics for starting node selection (which avoid starting inside a bubble).
 Note that there is a known bug in the \verb+-starter simple+ behavior: some of the unitigs of length k won't be returned (technically: the branching nodes which are neighbors of branching nodes are not returned).
+
+\section{Selection of graph simplification steps}
+
+By default, Minia performs 3 types of graph simplifications: tip removal, bulges removal, and erroneous connections removal. Those are similar to SPAdes. You can selectively ask to not perform any (or all) of those operation through those command line arguments: \verb+-no-tip-removal+, \verb+-no-bulge-removal+, \verb+-no-ec-removal+.
 
 \section{Memory usage}
 
