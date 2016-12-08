@@ -63,6 +63,9 @@ Minia::Minia () : Tool ("minia")
     /** We add options specific to Minia (most important at the end). */
 	OptionsParser* assemblyParser = new OptionsParser ("assembly");
 
+	assemblyParser->push_front (new OptionNoParam  ("-no-bulge-removal", "ask to not perform bulge removal", false));
+	assemblyParser->push_front (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
+	assemblyParser->push_front (new OptionNoParam  ("-no-ec-removal",   "ask to not perform erroneous connection removal", false));
 	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per line in fasta output (0 means one line)",  false, "0"));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
 	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= max(2k, 150 bp)) isolated output sequences", false));
@@ -224,6 +227,13 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
         bool verbose=true;
         Simplifications<Graph_type,Node,Edge> graphSimplifications(graph, nbCores, verbose);
 
+        if (getParser()->saw("-no-tip-removal"))
+            graphSimplifications._doTipRemoval = false;
+        if (getParser()->saw("-no-bulge-removal"))
+            graphSimplifications._doBulgeRemoval = false;
+        if (getParser()->saw("-no-ec-removal"))
+            graphSimplifications._doECRemoval = false;
+
         graphSimplifications.simplify();
 
         str_tipRemoval = graphSimplifications.tipRemoval;
@@ -259,7 +269,7 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
 
     getInfo()->add (2, "graph simpification stats");
     getInfo()->add (3, "tips removed",          "%s", str_tipRemoval.c_str());
-    getInfo()->add (3, "bubbles removed",          "%s", str_bubbleRemoval.c_str());
+    getInfo()->add (3, "bulges removed",          "%s", str_bubbleRemoval.c_str());
     getInfo()->add (3, "EC removed",          "%s", str_ECRemoval.c_str());
     getInfo()->add (2, "assembly traversal stats");
 
