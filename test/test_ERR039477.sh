@@ -70,6 +70,11 @@ CHKSUM=`cut -d ' ' -f 1 ERR039477.check`
 if [ "$REF_CHKSUM" == "$CHKSUM" ]; then
    echo "TEST OK"
 else
+   echo "some debug: $REF_CHKSUM $CHKSUM"
+   head -n 4 ERR039477.fastq.contigs.fa
+   echo $bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
+   ll ERR039477.fastq.gz
+   ll $bindir/minia
    echo "TEST KO"
    exit 1
 fi
