@@ -72,9 +72,10 @@ if [ "$REF_CHKSUM" == "$CHKSUM" ]; then
 else
    echo "some debug: $REF_CHKSUM $CHKSUM"
    head -n 4 ERR039477.fastq.contigs.fa
+   wc -l ERR039477.fastq.contigs.fa
    echo $bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
-   ll ERR039477.fastq.gz
-   ll $bindir/minia
+   ls -l ERR039477.fastq.gz
+   ls -l $bindir/minia
    echo "TEST KO"
    exit 1
 fi
