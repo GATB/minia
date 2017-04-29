@@ -86,6 +86,14 @@ file (GLOB_RECURSE  ProjectFiles  ${PROGRAM_SOURCE_DIR}/*)
 add_executable(${PROJECT_NAME} ${ProjectFiles})
 target_link_libraries(${PROJECT_NAME} ${gatb-core-libraries})
 
+# merci
+set (MERCI_SOURCE_DIR ${PROJECT_SOURCE_DIR}/merci)
+include_directories (${MERCI_SOURCE_DIR})
+file (GLOB_RECURSE  MerciFiles  ${MERCI_SOURCE_DIR}/*.cpp)
+add_executable("merci"  ${MerciFiles})
+target_link_libraries("merci" ${gatb-core-libraries})
+
+
 ################################################################################
 #  DOC
 ################################################################################
