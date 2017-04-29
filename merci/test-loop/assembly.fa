@@ -1,0 +1,6 @@
+>c1 starts with       AAACACACATG, 2 bases after c3. need to use k=11
+AAACACACATGTGCTGCTGCTGAATGTAGATGA
+>c2 starts with         ^GTAGATGACAT, three bases after end of c1
+GTAGATGACATCTGCTTTTGCCAAACAA
+>c3 starts with   ^GCCAAACAAGT, two bases after end of c2
+GCCAAACAAGTAGATGACATCTAAACACACA
