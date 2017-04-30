@@ -2,5 +2,5 @@
 AAACACACATGTGCTGCTGCTGAATGTAGATGA
 >c2 starts with         ^GTAGATGACAT, three bases after end of c1
 GTAGATGACATCTGCTTTTGCCAAACAA
->c3 starts with   ^GCCAAACAAGT, two bases after end of c2
-GCCAAACAAGTAGATGACATCTAAACACACA
+>c3 starts with   ^GCCAAACAAGC, two bases after end of c2
+GCCAAACAAGCCGCCGACATCTAAACACACA

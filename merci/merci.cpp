@@ -84,7 +84,8 @@ void index_assembly(string assembly, int k, int nb_threads, bool verbose, assemb
             {
                 const string kmerBegin = seq.substr(0, k );
                 const typename ModelCanon::Kmer kmmerBegin = modelCanon.codeSeed(kmerBegin.c_str(), Data::ASCII);
-                ExtremityInfo e (current_seq, false, UNITIG_BEGIN); /* actually we dont know if its false/UNITIG_BEGIN or reverse/UNITIG_END but should think about it, for now, putting naive*/ 
+                bool rc = modelCanon.toString(kmmerBegin.value()) != kmerBegin; // could be optimized
+                ExtremityInfo e (current_seq, rc, UNITIG_BEGIN); /* actually we dont know if its false/UNITIG_BEGIN or reverse/UNITIG_END but should think about it, for now, putting naive*/ 
                 index[kmmerBegin.value()] = e.pack();
                 if (debug)
                 std::cout << "index left kmer " << modelCanon.toString(kmmerBegin.value()) << " of contig " << current_seq << std::endl; 
@@ -94,7 +95,8 @@ void index_assembly(string assembly, int k, int nb_threads, bool verbose, assemb
             {
                 const string kmerEnd = seq.substr(seq.size() - k , k );
                 const typename ModelCanon::Kmer kmmerEnd = modelCanon.codeSeed(kmerEnd.c_str(), Data::ASCII);
-                ExtremityInfo e (current_seq, false, UNITIG_END); 
+                bool rc =  modelCanon.toString(kmmerEnd.value()) != kmerEnd; // could be optimized
+                ExtremityInfo e (current_seq, rc, UNITIG_END); 
                 index[kmmerEnd.value()] = e.pack();
                 if (debug)
                 std::cout << "index right kmer " << modelCanon.toString(kmmerEnd.value()) << " of contig " << current_seq << std::endl; 
@@ -111,22 +113,48 @@ void index_assembly(string assembly, int k, int nb_threads, bool verbose, assemb
         indexAssembly(it->item());
 }
 
+/* populates connections_index and connections
+ 
+ * may not insert if it detects that something is not right with respect to orientations:
+     * ctg1 ----------[kmer1]
+     * ctg2 ----------[kmer2]
+     * is only possible when read is
+     * [kmer1]---[kmer2 rc] or [kmer1 rc]---[kmer2],
+     * where rc is relative to the orientation of the kmer in ctg1/ctg2
+     *
+     * similarly,
+     * ctg1 ----------[kmer1]
+     * ctg2 [kmer2]---------
+     * is only possible when read is
+     * [kmer1]----[kmer2] or [kmer2 rc]----[kmer1 rc]]
+     *
+     * now, consider that kmer1 is either in its forward or reverse orientation with respect to the contig.
+*/
 static void 
-insert_connection(uint64_t previous_extremityinfo, uint64_t current_extremityinfo, connections_index_t &connections_index, connections_t &connections, int previous_pos, int current_pos, const string &seq, int k, bool verbose)
+insert_connection(uint64_t previous_extremityinfo, uint64_t current_extremityinfo, connections_index_t &connections_index, connections_t &connections, int previous_pos, int current_pos, bool previous_rc, bool current_rc, const string &seq, int k, bool verbose)
 {
     /* there are two ways to write a connection and we need to write them both */
     ExtremityInfo pe(previous_extremityinfo); 
     ExtremityInfo ce(current_extremityinfo); 
 
     if (pe.unitig == ce.unitig) return; // one case where we actually don't insert
-    
-    connections_index[pe.pack()].insert(ce.pack());
-    connections_index[ce.pack()].insert(pe.pack());
+   
+    if (pe.rc) previous_rc = !previous_rc; // haha i'm not proud of myself but i didn't carefully check that code. but it seems to make sense and no crashes anymore, so..
+    if (ce.rc) current_rc  = !current_rc; 
+    if (pe.pos == ce.pos && (previous_rc == current_rc)) return;
+    if (pe.pos != ce.pos && (previous_rc != current_rc)) return;
+
+    // at this points we don't need to care about rc anymore, we know that it's all good. somehow_merge() will somehow figure it out
+
+    uint64_t ce_packed = ce.pack_norc();
+    uint64_t pe_packed = pe.pack_norc();
+    connections_index[pe_packed].insert(ce_packed);
+    connections_index[ce_packed].insert(pe_packed);
 
     // this the part of the read that is the connection sequence
     string connection = seq.substr(previous_pos,current_pos-previous_pos+k);
-    connections[pe.pack()].insert(connection);
-    connections[ce.pack()].insert(connection);
+    connections[pe_packed].insert(connection);
+    connections[ce_packed].insert(connection);
 
     //if (verbose)        std::cout << "found connection between contig " << pe.unitig << " and contig " << ce.unitig << " : " << seq.substr(previous_pos,current_pos-previous_pos+k) << std::endl; 
 }
@@ -139,6 +167,7 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
         std::cout << "searching reads for assembly extremities" << std::endl;
 
     std::mutex insertMutex;
+    uint64_t nb_found_connections = 0;
 
     class SearchReads 
     {
@@ -152,13 +181,13 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
         std::mutex &insertMutex;
         assembly_index_t<span> &assembly_index;
         int _currentThreadIndex; // for later
+        uint64_t &nb_found_connections;
 
         public: 
-        uint64_t nb_found_connections; 
 
-        SearchReads(int k, bool verbose, assembly_index_t<span> &assembly_index, connections_index_t &connections_index, connections_t &connections, std::mutex &insertMutex) : 
+        SearchReads(int k, bool verbose, assembly_index_t<span> &assembly_index, connections_index_t &connections_index, connections_t &connections, std::mutex &insertMutex, uint64_t &nb_found_connections) : 
                       k(k), verbose(verbose), modelCanon(k), connections_index(connections_index), connections(connections), insertMutex(insertMutex),
-                         assembly_index(assembly_index), _currentThreadIndex(-1), nb_found_connections(0)
+                         assembly_index(assembly_index), _currentThreadIndex(-1), nb_found_connections(nb_found_connections)
         {}
  
         void operator()     (/* not making it const because if itKmer */ Sequence& sequence) {
@@ -170,6 +199,9 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
             int previous_pos = -1;
             int current_pos = 0;
             uint64_t previous_extremityinfo = 0;
+            bool previous_rc = false, current_rc = false;
+
+            //std::cout << "seq: " << seq << std::endl;
             for (itKmer.first(); !itKmer.isDone(); itKmer.next())
             {
                 typedef typename Kmer<span>::Type Type;
@@ -179,15 +211,17 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
                 auto hit = assembly_index.find(kmer) ;
                 if (hit != assembly_index.end())
                 {
+                    current_rc = modelCanon.toString(kmer) != seq.substr(current_pos,k);
                     uint64_t current_extremityinfo = hit->second;
                     if (previous_pos != -1 && current_pos - previous_pos < max_delta)
                     {
                         insertMutex.lock();
-                        insert_connection(previous_extremityinfo, current_extremityinfo, connections_index, connections, previous_pos, current_pos, seq, k, verbose);
+                        insert_connection(previous_extremityinfo, current_extremityinfo, connections_index, connections, previous_pos, current_pos, previous_rc, current_rc, seq, k, verbose);
                         nb_found_connections++;
                         insertMutex.unlock();
                     }
                     previous_pos    = current_pos;
+                    previous_rc     = current_rc;
                     previous_extremityinfo = current_extremityinfo;
                 }
                 current_pos++;
@@ -195,7 +229,7 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
         }
     };
 
-    SearchReads searchReads(k, verbose, assembly_index, connections_index, connections, insertMutex);
+    SearchReads searchReads(k, verbose, assembly_index, connections_index, connections, insertMutex, nb_found_connections);
 
     IBank *in = Bank::open (reads);
     Dispatcher dispatcher (nb_threads);
@@ -204,52 +238,8 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
     for (it->first (); !it->isDone(); it->next())
         searchReads(it->item());
     */
-    if (verbose) std::cout << "found " << searchReads.nb_found_connections << " connections" << std::endl;
+    if (verbose) std::cout << "found " << nb_found_connections << " connections" << std::endl;
 }
-
-/* examines connections_index to see how contigs are connected to each other
- * returns true for "compactable" nodes, those which have single out-neighbor and single-inneighbor in the connection graph
- * oh indeed, this is a compaction problem all over again
- * well no wonder why i'm using bglue after then
- *
- * unpure function: updates seqs_to_glue
- */
-static bool check_connections(uint64_t packed, connections_index_t &connections_index, connections_t &connections, set<uint64_t> &seqs_to_glue, bool given_verbose)
-{
-    bool verbose = false; // = given_verbose
-
-    if (connections_index.find(packed) == connections_index.end())
-        return false;
-
-    ExtremityInfo current(packed);
-
-    set<uint64_t> &links = connections_index[packed];
-    if (links.size() != 1)
-    {
-        if (verbose) std::cout << "bad conn, contig: " << current.unitig << " connections: " << links.size() << std::endl;
-        return false;
-    }
-
-    ExtremityInfo other(*connections_index[packed].begin());
-
-    // check the incoming links of that other
-    if (connections_index[other.pack()].size() != 1)
-    {
-        if (verbose) std::cout << "bad conn, other contig: " << current.unitig << " connections: " << links.size() << std::endl;
-        return false;
-    }
-
-    // all good, we keep this one
-    // and to avoid redundancy, we delete the other
-    if (verbose) std::cout << "clearing connections of contig " << other.unitig << std::endl;
-    connections[other.pack()].clear();
-    seqs_to_glue.insert(other.pack());
-    
-    if (verbose) std::cout << "good conn: " << current.unitig << " connections: " << links.size() << std::endl;
-    
-    return connections[packed].size() == 1; // may return false if it was previously cleared
-}
-
 
 // there are not so many places where i need a sequence revcomp. GraphUnitigs and here.
 static
@@ -272,50 +262,117 @@ static string revcomp (const string &s) {
 }
 
 /* naive, cause I'm lazy */
-static void 
-somehow_merge(string &seq, const string &extension, unsigned int k, bool verbose)
+static bool 
+somehow_merge(string &seq, const string &extension, unsigned int k, bool verbose, int pos)
 {
     const string rev_extension = revcomp(extension);
-
-    unsigned last_pos = seq.size() - k;
-    const vector<unsigned int> positions {0, last_pos};
-    for (auto pos: positions)
+    
+    const string extrem = seq.substr(pos,k);
+    const vector<string> extensions {extension, rev_extension};
+    for (auto e: extensions)
     {
-        const string extrem = seq.substr(pos,k);
-        const vector<string> extensions {extension, rev_extension};
-        for (auto e: extensions)
+        if (pos == 0)
         {
-            if (pos == 0)
+            /*     [     ]---seq----
+             *  -e-[     ]
+             */
+            if (e.substr(e.size()-k) == extrem)
             {
-                /*     [     ]---seq----
-                 *  -e-[     ]
-                 */
-                if (e.substr(e.size()-k) == extrem)
-                {
-                    seq = e.substr(0,e.size()-k) + seq;
-                    return;
-                }
+                seq = e.substr(0,e.size()-k) + seq;
+                return true;
             }
-            else
+        }
+        else
+        {
+            /*    ----seq-----[      ]
+             *                [      ]--e--
+             */
+            if (e.substr(0,k) == extrem)
             {
-                /*    ----seq-----[      ]
-                 *                [      ]--e--
-                 */
-                if (e.substr(0,k) == extrem)
-                {
-                    seq = seq + e.substr(k);
-                    return;
-                }
+                seq = seq + e.substr(k);
+                return true;
             }
         }
     }
-    std::cout << "oops, couldn't somehow merge " << seq << " with " << extension << std::endl;
+    //std::cout << "oops, couldn't somehow merge " << seq << " with " << extension << std::endl;
+    /* yeah well, that's the following situation (all in forward orientation, no rc):
+     *  assembly: 
+     *    [kmer1]--------
+     *    [kmer2]--------
+     *  read:
+     *    --[kmer1]--[kmer2]--
+     *  may occurs due to EC removal
+     *
+     * 
+     * --------------[kmer2]----- 
+     *              /
+     *             / EC
+     *            /
+     * -----[kmer1]----
+     *
+     *  so whenever this situation occurs, let's not glue again anyhow
+     */
+    return false;
 }
+
+/* examines connections_index to see how contigs are connected to each other
+ * returns true for "compactable" nodes, those which have single out-neighbor and single-inneighbor in the connection graph
+ * oh indeed, this is a compaction problem all over again
+ * well no wonder why i'm using bglue after then
+ *
+ * unpure function: updates seqs_to_glue
+ */
+static bool maybe_merge(uint64_t packed, connections_index_t &connections_index, connections_t &connections, set<uint64_t> &seqs_to_glue, bool given_verbose, string &seq, int k, int pos)
+{
+    bool verbose = given_verbose;
+
+    if (connections_index.find(packed) == connections_index.end())
+        return false;
+
+    ExtremityInfo current(packed);
+
+    set<uint64_t> &links = connections_index[packed];
+    if (links.size() != 1)
+    {
+        if (verbose) std::cout << "bad conn (" << (pos==UNITIG_BEGIN?"beg":"end") << "), contig: " << current.unitig << (current.pos==UNITIG_BEGIN?"beg":"end") << " connections: " << links.size() << std::endl;
+        return false;
+    }
+
+    ExtremityInfo other(*connections_index[packed].begin());
+
+    // check the incoming links of that other
+    if (connections_index[other.pack_norc()].size() != 1)
+    {
+        if (verbose) std::cout << "bad conn (" << (pos==UNITIG_BEGIN?"beg":"end") << "), other contig: " << other.unitig << (other.pos==UNITIG_BEGIN?"beg":"end") << " connections: " << connections_index[other.pack_norc()].size() << std::endl;
+        return false;
+    }
+
+    if (connections[packed].size() != 1) // may return false if it was previously cleared
+        return false;
+    
+    // all good, we keep this one
+    // let's try to merge it
+    
+    const string extension = *(connections[packed].begin());
+    if (!somehow_merge(seq, extension, k, verbose, pos==UNITIG_BEGIN?0:(seq.size()-k)))
+        return false;
+
+    // merge went okay!
+    // to avoid redundancy, we delete the other
+    if (verbose) std::cout << "good conn (" << (pos==UNITIG_BEGIN?"beg":"end") << "): " << current.unitig << " connections: " << links.size() << std::endl;
+    if (verbose) std::cout << "clearing connections of contig " << other.unitig << std::endl;
+    connections[other.pack_norc()].clear();
+    seqs_to_glue.insert(other.pack_norc());
+    return true; 
+}
+
+
 static void 
 extend_assembly_with_connections(const string assembly, int k, int nb_threads, bool verbose, connections_index_t &connections_index, connections_t &connections, BankFasta &out, BankFasta &glue)
 {
     if (verbose)
         std::cout << "extending assembly with unambiguous connections" << std::endl;
+
     IBank *in = Bank::open (assembly);
     auto it = in->iterator();    
     uint64_t tig_index = 0;
@@ -327,29 +384,25 @@ extend_assembly_with_connections(const string assembly, int k, int nb_threads, b
         string seq = sequence.toString(); 
         const string comment = sequence.getComment();
 
+        bool debug = false;
+        
         ExtremityInfo beg(tig_index, false, UNITIG_BEGIN);
         ExtremityInfo end(tig_index, false, UNITIG_END);
         bool lmark, rmark;
 
         // see if the contig was already previously marked as one to glue
-        lmark = (seqs_to_glue.find(beg.pack()) != seqs_to_glue.end());
-        rmark = (seqs_to_glue.find(end.pack()) != seqs_to_glue.end());
+        lmark = (seqs_to_glue.find(beg.pack_norc()) != seqs_to_glue.end());
+        rmark = (seqs_to_glue.find(end.pack_norc()) != seqs_to_glue.end());
 
-        //if (verbose) if (lmark || rmark) std::cout << "not extending " << tig_index << " bc previously set to glue with another extremity" << std::endl;
+        if (debug) if (lmark || rmark) std::cout << "tig " << tig_index << " already marked with " << lmark << rmark << std::endl;
         
-        if ((!lmark) && check_connections(beg.pack(), connections_index, connections, seqs_to_glue, verbose)) // order of evaluation matters, as check_connection is unpure
-        {
-            const string extension = *(connections[beg.pack()].begin());
-            somehow_merge(seq,extension,k, verbose);
+        if ((!lmark) && maybe_merge(beg.pack_norc(), connections_index, connections, seqs_to_glue, debug, seq, k, UNITIG_BEGIN)) // order of evaluation matters, as check_connection is unpure
             lmark = true;
-        }
 
-        if ((!rmark) && check_connections(end.pack(), connections_index, connections, seqs_to_glue, verbose))
-        {
-            const string extension = *connections[end.pack()].begin();
-            somehow_merge(seq,extension, k, verbose);
+        if ((!rmark) && maybe_merge(end.pack_norc(), connections_index, connections, seqs_to_glue, debug, seq, k, UNITIG_END))
             rmark = true;
-        }
+        
+        if (debug) std::cout << "tig " << tig_index << " new mark " << lmark << rmark << std::endl;
 
         Sequence s (Data::ASCII);
         s.getData().setRef ((char*)seq.c_str(), seq.size());
@@ -373,8 +426,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
 {
     if (verbose)
         cout << "k: " << k << " threads: " << nb_threads << " reads: " << reads << " assembly: " << assembly << endl;
-
-
+    
     // make a copy of the assembly, and find links
     string linked_assembly = assembly + ".linked";
     file_copy(assembly, linked_assembly);
@@ -396,7 +448,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     BankFasta glue(assembly+".glue.glue"); // bglue will glue the .glue.glue to .glue
     extend_assembly_with_connections(assembly, k, nb_threads, verbose, connections_index, connections, out, glue);
     glue.flush();
-
+    
     // glue what needs to be glued. magic, we're re-using bcalm code
     bglue<span> (nullptr /*no storage*/, assembly+".glue", k, nb_threads, verbose);
     
