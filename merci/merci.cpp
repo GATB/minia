@@ -426,12 +426,18 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
 {
     if (verbose)
         cout << "k: " << k << " threads: " << nb_threads << " reads: " << reads << " assembly: " << assembly << endl;
-    
+
     // make a copy of the assembly, and find links
     string linked_assembly = assembly + ".linked";
     file_copy(assembly, linked_assembly);
     uint64_t nb_tigs = 0;
     link_tigs<span>( linked_assembly, k, nb_threads, nb_tigs, verbose);
+
+    // real trick here
+    // tigs of length exactly k are annoying, they need to be handled carefully with UNITIG_BOTH positions
+    // so to avoid that for now, I'm just going to do the rest of th program using (k-1)-mers, so that each tig has a clear beginning and end
+    // we lose one nucleotide of specificity, should i'm willing to accept that for now
+    k -= 1;
 
     // index extremities of assembly that do not have links
     assembly_index_t<span> index;
@@ -476,7 +482,7 @@ public:
         assemblyParser->push_front (new OptionOneParam ("-assembly",    "assembly to improve",   true));
         assemblyParser->push_front (new OptionOneParam (STR_KMER_SIZE,    "kmer size",   true));
         assemblyParser->push_front (new OptionOneParam (STR_NB_CORES,    "number of threads",   false, "0")); // apparently its needed when there is no parser
-        assemblyParser->push_front (new OptionOneParam (STR_VERBOSE,  "verbosity level", false, "0"));
+        assemblyParser->push_front (new OptionOneParam (STR_VERBOSE,  "verbosity level", false, "1"));
         getParser()->push_back (assemblyParser);
     }
 
