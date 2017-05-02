@@ -1,6 +1,6 @@
 /*****************************************************************************
  *   GATB : Genome Assembly Tool Box
- *   Copyright (C) 2014  INRIA
+ *   Copyright (C) 2017  INRIA
  *   Authors: R.Chikhi, G.Rizk, E.Drezen
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -17,6 +17,12 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
+/* merci does the mercy-kmer assembly trick of megahit
+ *
+ * IMPORTANT: really need to set k as the same as the one that was used for creating those contigs/unitigs,
+ * otherwise it will still run but the glue will make the machine run out of memory :/
+ */
+
 /********************************************************************************/
 
 #include <gatb/gatb_core.hpp>
@@ -27,7 +33,7 @@
 #include <unordered_map>
 #include <iomanip> // for setprecision
 
-const int max_delta = 15; // important parameter
+const int max_delta = 5; // important parameter
 
 using namespace std;
 
@@ -211,7 +217,10 @@ void search_reads(string reads, int k, int nb_threads, bool verbose, assembly_in
                 auto hit = assembly_index.find(kmer) ;
                 if (hit != assembly_index.end())
                 {
-                    current_rc = modelCanon.toString(kmer) != seq.substr(current_pos,k);
+                    const string kmer_seq = seq.substr(current_pos,k);
+                    if (kmer_seq.find("N") != string::npos)
+                        continue;//discard kmers with N's
+                    current_rc = modelCanon.toString(kmer) != kmer_seq;
                     uint64_t current_extremityinfo = hit->second;
                     if (previous_pos != -1 && current_pos - previous_pos < max_delta)
                     {
@@ -435,7 +444,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
 
     // real trick here
     // tigs of length exactly k are annoying, they need to be handled carefully with UNITIG_BOTH positions
-    // so to avoid that for now, I'm just going to do the rest of th program using (k-1)-mers, so that each tig has a clear beginning and end
+    // so to avoid that for now, I'm just going to do the rest of the program using (k-1)-mers, so that each tig has a clear beginning and end
     // we lose one nucleotide of specificity, should i'm willing to accept that for now
     k -= 1;
 
@@ -454,7 +463,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     BankFasta glue(assembly+".glue.glue"); // bglue will glue the .glue.glue to .glue
     extend_assembly_with_connections(assembly, k, nb_threads, verbose, connections_index, connections, out, glue);
     glue.flush();
-    
+   
     // glue what needs to be glued. magic, we're re-using bcalm code
     bglue<span> (nullptr /*no storage*/, assembly+".glue", k, nb_threads, verbose);
     
