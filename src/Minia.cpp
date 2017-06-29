@@ -78,16 +78,16 @@ Minia::Minia () : Tool ("minia")
 	simplificationsParser->push_back (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
 	simplificationsParser->push_back (new OptionNoParam  ("-no-ec-removal",   "ask to not perform erroneous connection removal", false));
 
-	simplificationsParser->push_back (new OptionOneParam ("-tip-len-topo-kmult", "",  false, to_string(graphSimplifications._tipLen_Topo_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-tip-len-rctc-kmult", "",  false, to_string(graphSimplifications._tipLen_RCTC_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-tip-rctc-cutoff",    "",  false, to_string(graphSimplifications._tipRCTCcutoff)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-len-topo-kmult", "remove tips of length <= k * X bp",  false, to_string(graphSimplifications._tipLen_Topo_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-len-rctc-kmult", "remove tips that pass coverage criteria, of length <= k * X bp",  false, to_string(graphSimplifications._tipLen_RCTC_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-rctc-cutoff",    "tip relative coverage coefficient: mean coverage of neighbors > k * X * tip coverage",  false, to_string(graphSimplifications._tipRCTCcutoff)));
 
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "",  false, to_string(graphSimplifications._bulgeLen_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "",  false, to_string(graphSimplifications._bulgeAltPath_kAdd)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "bulges can be as long as k*X bp",  false, to_string(graphSimplifications._bulgeLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "bulges can be as long as k+X bp",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X nodes to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd)));
 
-	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "",  false, to_string(graphSimplifications._ecLen_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-ec-rctc-cutoff",     "",  false, to_string(graphSimplifications._ecRCTCcutoff)));
+	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "EC can be as long as k*X bp",  false, to_string(graphSimplifications._ecLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-ec-rctc-cutoff",     "EC relative coverage coefficient (similar in spirit as tip)",  false, to_string(graphSimplifications._ecRCTCcutoff)));
 
 	getParser()->push_back (simplificationsParser);     
 
