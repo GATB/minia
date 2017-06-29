@@ -63,15 +63,33 @@ Minia::Minia () : Tool ("minia")
     /** We add options specific to Minia (most important at the end). */
 	OptionsParser* assemblyParser = new OptionsParser ("assembly");
 
-	assemblyParser->push_front (new OptionNoParam  ("-no-bulge-removal", "ask to not perform bulge removal", false));
-	assemblyParser->push_front (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
-	assemblyParser->push_front (new OptionNoParam  ("-no-ec-removal",   "ask to not perform erroneous connection removal", false));
 	assemblyParser->push_front (new OptionOneParam (STR_FASTA_LINE_SIZE, "number of nucleotides per line in fasta output (0 means one line)",  false, "0"));
 	assemblyParser->push_front (new OptionOneParam (STR_TRAVERSAL_KIND,  "traversal type ('contig', 'unitig')", false,  "contig"  ));
 	assemblyParser->push_front (new OptionNoParam  (STR_KEEP_ISOLATED,   "keep short (<= max(2k, 150 bp)) isolated output sequences", false));
 	assemblyParser->push_front (new OptionOneParam (STR_URI_INPUT,       "input reads (fasta/fastq/compressed) or hdf5 file",   false));
 
     getParser()->push_back (assemblyParser);
+
+	OptionsParser* simplificationsParser = new OptionsParser ("graph simplifications");
+	GraphUnitigsTemplate<32> dummyGraph;
+    Simplifications<GraphUnitigsTemplate<32>,NodeGU,EdgeGU> graphSimplifications(dummyGraph, 1, false); // get a graph simplifications object just to get default parameters
+
+	simplificationsParser->push_back (new OptionNoParam  ("-no-bulge-removal", "ask to not perform bulge removal", false));
+	simplificationsParser->push_back (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
+	simplificationsParser->push_back (new OptionNoParam  ("-no-ec-removal",   "ask to not perform erroneous connection removal", false));
+
+	simplificationsParser->push_back (new OptionOneParam ("-tip-len-topo-kmult", "",  false, to_string(graphSimplifications._tipLen_Topo_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-len-rctc-kmult", "",  false, to_string(graphSimplifications._tipLen_RCTC_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-rctc-cutoff",    "",  false, to_string(graphSimplifications._tipRCTCcutoff)));
+
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "",  false, to_string(graphSimplifications._bulgeLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "",  false, to_string(graphSimplifications._bulgeAltPath_kAdd)));
+
+	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "",  false, to_string(graphSimplifications._ecLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-ec-rctc-cutoff",     "",  false, to_string(graphSimplifications._ecRCTCcutoff)));
+
+	getParser()->push_back (simplificationsParser);     
 
     // when we input reads, dbgh5 is executed, so its options are needed here
     IOptionsParser* graphParser = Graph::getOptionsParser(false);
@@ -234,6 +252,25 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
         if (getParser()->saw("-no-ec-removal"))
             graphSimplifications._doECRemoval = false;
 
+		if (getParser()->saw("-tip-len-topo-kmult"))
+			graphSimplifications._tipLen_Topo_kMult = getInput()->getDouble("-tip-len-topo-kmult");
+		if (getParser()->saw("-tip-len-rctc-kmult"))
+			graphSimplifications._tipLen_RCTC_kMult = getInput()->getDouble("-tip-len-rctc-kmult");
+		if (getParser()->saw("-tip-rctc-cutoff"))
+			graphSimplifications._tipRCTCcutoff = getInput()->getDouble("-tip-rctc-cutoff");
+
+		if (getParser()->saw("-bulge-len-kmult"))
+			graphSimplifications._bulgeLen_kMult = getInput()->getDouble("-bulge-len-kmult");
+		if (getParser()->saw("-bulge-len-kadd"))
+			graphSimplifications._bulgeLen_kAdd = getInput()->getDouble("-bulge-len-kadd");
+		if (getParser()->saw("-bulge-altpath-kadd"))
+			graphSimplifications._bulgeAltPath_kAdd = getInput()->getDouble("-bulge-altpath-kadd");
+
+		if (getParser()->saw("-ec-len-kmult"))
+			graphSimplifications._ecLen_kMult = getInput()->getDouble("-ec-len-kmult");
+		if (getParser()->saw("-ec-rctc-cutoff"))
+			graphSimplifications._ecRCTCcutoff = getInput()->getDouble("-ec-rctc-cutoff");
+                                                                                                                                                                                                                  
         graphSimplifications.simplify();
 
         str_tipRemoval = graphSimplifications.tipRemoval;
