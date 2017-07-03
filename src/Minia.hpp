@@ -24,6 +24,7 @@
 
 #include <gatb/gatb_core.hpp>
 #include <gatb/debruijn/impl/GraphUnitigs.hpp>
+#include <string>
 
 /********************************************************************************/
 
@@ -41,9 +42,10 @@ public:
 
     /** */
     template <typename Graph_type, typename Node, typename Edge, size_t span>
-    void assemble (/*const*/ Graph_type& graph);
+    std::string assemble (/*const*/ Graph_type& graph);
     
-    bool hasUnitigs;
+    u_int64_t nbContigs         ;
+    unsigned int k;
 private:
 
     /** */
@@ -51,7 +53,6 @@ private:
     void assembleFrom (Node startingNode, Graph_type& graph, IBank *outputBank);
 
     bool keepIsolatedTigs;
-    u_int64_t nbContigs         ;
     u_int64_t nbSmallContigs    ;
     u_int64_t totalNt           ;
     u_int64_t maxContigLen      ;

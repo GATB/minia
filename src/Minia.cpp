@@ -26,7 +26,6 @@
 #include <gatb/debruijn/impl/GraphUnitigs.hpp>
 
 #include <fstream>
-#include <string>
 #include <iomanip> // for setprecision
 using namespace std;
 
@@ -71,22 +70,23 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_back (assemblyParser);
 
 	OptionsParser* simplificationsParser = new OptionsParser ("graph simplifications");
-	GraphUnitigsTemplate<32> dummyGraph;
+    // this requires that Minia is compiled to support kmer values of 32 at least.
+    GraphUnitigsTemplate<32> dummyGraph = GraphUnitigsTemplate<32>::create (new BankStrings ("AGGCGCC",(char*)0),  "-kmer-size 5  -minimizer-size 4 -abundance-min 1  -verbose 0");
     Simplifications<GraphUnitigsTemplate<32>,NodeGU,EdgeGU> graphSimplifications(dummyGraph, 1, false); // get a graph simplifications object just to get default parameters
 
 	simplificationsParser->push_back (new OptionNoParam  ("-no-bulge-removal", "ask to not perform bulge removal", false));
 	simplificationsParser->push_back (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
 	simplificationsParser->push_back (new OptionNoParam  ("-no-ec-removal",   "ask to not perform erroneous connection removal", false));
 
-	simplificationsParser->push_back (new OptionOneParam ("-tip-len-topo-kmult", "remove tips of length <= k * X bp",  false, to_string(graphSimplifications._tipLen_Topo_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-len-topo-kmult", "remove all tips of length <= k * X bp",  false, to_string(graphSimplifications._tipLen_Topo_kMult)));
 	simplificationsParser->push_back (new OptionOneParam ("-tip-len-rctc-kmult", "remove tips that pass coverage criteria, of length <= k * X bp",  false, to_string(graphSimplifications._tipLen_RCTC_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-tip-rctc-cutoff",    "tip relative coverage coefficient: mean coverage of neighbors > k * X * tip coverage",  false, to_string(graphSimplifications._tipRCTCcutoff)));
+	simplificationsParser->push_back (new OptionOneParam ("-tip-rctc-cutoff",    "tip relative coverage coefficient: mean coverage of neighbors >  X * tip coverage",  false, to_string(graphSimplifications._tipRCTCcutoff)));
 
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "bulges can be as long as k*X bp",  false, to_string(graphSimplifications._bulgeLen_kMult)));
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "bulges can be as long as k+X bp",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X nodes to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "bulges shorter than k*X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "bulges shorter than k+X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X nodes to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd))); // TODO k should not appear in that equation
 
-	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "EC can be as long as k*X bp",  false, to_string(graphSimplifications._ecLen_kMult)));
+	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "EC shorter than k*X bp are candidates to be removed",  false, to_string(graphSimplifications._ecLen_kMult)));
 	simplificationsParser->push_back (new OptionOneParam ("-ec-rctc-cutoff",     "EC relative coverage coefficient (similar in spirit as tip)",  false, to_string(graphSimplifications._ecRCTCcutoff)));
 
 	getParser()->push_back (simplificationsParser);     
@@ -149,7 +149,13 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     }
 
     /** We build the contigs. */
-    minia.assemble<GraphType, NodeGU, EdgeGU, span>(graph);
+    string output = minia.assemble<GraphType, NodeGU, EdgeGU, span>(graph);
+
+    // link contigs
+    uint nb_threads = 1;  // doesn't matter because for now link_tigs is single-threaded
+    bool verbose = true;
+    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose);
+
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
@@ -159,10 +165,10 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 void Minia::execute ()
 {
     /** we get the kmer size chosen by the end user. */
-    size_t kmerSize = getInput()->getInt (STR_KMER_SIZE);
+    k = getInput()->getInt (STR_KMER_SIZE);
 
     /** We launch Minia with the correct Integer implementation according to the choosen kmer size. */
-    Integer::apply<MiniaFunctor,Parameter> (kmerSize, Parameter (*this));
+    Integer::apply<MiniaFunctor,Parameter> (k, Parameter (*this));
 }
 
 
@@ -180,7 +186,10 @@ void Minia::assembleFrom(Node startingNode, Graph_type& graph, IBank *outputBank
     /** We set the sequence comment. */
     stringstream ss1;
     // spades-like header (compatible with bandage) 
-    ss1 << "NODE_"<< nbContigs + 1 << "_length_" << sequence.size() << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
+    //ss1 << "NODE_"<< nbContigs + 1 << "_length_" << sequence.size() << "_cov_" << fixed << std::setprecision(3) << coverage << "_ID_" << nbContigs;
+    // bcalm-like header (that can be converted to GFA)
+    ss1 << nbContigs  << " LN:i:" << sequence.size() << " KC:i:" << (unsigned int)(coverage*(sequence.size()-k+1)) << " km:f:" << fixed << std::setprecision(3) << coverage ;
+   
     seq._comment = ss1.str();
     unsigned int lenTotal = sequence.size();
     if (lenTotal > isolatedCutoff || (lenTotal <= isolatedCutoff && (!(isolatedLeft && isolatedRight))) || keepIsolatedTigs)
@@ -204,7 +213,7 @@ void Minia::assembleFrom(Node startingNode, Graph_type& graph, IBank *outputBank
 ** REMARKS :
 *********************************************************************/
 template <typename Graph_type, typename Node, typename Edge, size_t span>
-void Minia::assemble (/*const, removed because Simplifications isn't const anymore*/ Graph_type& graph)
+string Minia::assemble (/*const, removed because Simplifications isn't const anymore*/ Graph_type& graph)
 {
     TIME_INFO (getTimeInfo(), "assembly");
 
@@ -292,7 +301,7 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
 
         assembleFrom<Graph_type, Node, Edge, span>(node, graph, outputBank);
     }
-
+    
     /** We add the input parameters to the global properties. */
     getInfo()->add (1, getInput());
 
@@ -310,5 +319,6 @@ void Minia::assemble (/*const, removed because Simplifications isn't const anymo
     getInfo()->add (3, "EC removed",          "%s", str_ECRemoval.c_str());
     getInfo()->add (2, "assembly traversal stats");
 
+    return output;
 }
 
