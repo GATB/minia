@@ -85,6 +85,7 @@ Minia::Minia () : Tool ("minia")
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "bulges shorter than k*X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kMult)));
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "bulges shorter than k+X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X nodes to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd))); // TODO k should not appear in that equation
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-covmult", "bulges of coverage <= X*cov_altpath will be removed",  false, to_string(graphSimplifications._bulgeAltPath_covMult))); 
 
 	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "EC shorter than k*X bp are candidates to be removed",  false, to_string(graphSimplifications._ecLen_kMult)));
 	simplificationsParser->push_back (new OptionOneParam ("-ec-rctc-cutoff",     "EC relative coverage coefficient (similar in spirit as tip)",  false, to_string(graphSimplifications._ecRCTCcutoff)));
@@ -274,6 +275,8 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
 			graphSimplifications._bulgeLen_kAdd = getInput()->getDouble("-bulge-len-kadd");
 		if (getParser()->saw("-bulge-altpath-kadd"))
 			graphSimplifications._bulgeAltPath_kAdd = getInput()->getDouble("-bulge-altpath-kadd");
+		if (getParser()->saw("-bulge-altpath-covMult"))
+			graphSimplifications._bulgeAltPath_covMult = getInput()->getDouble("-bulge-altpath-covMult");
 
 		if (getParser()->saw("-ec-len-kmult"))
 			graphSimplifications._ecLen_kMult = getInput()->getDouble("-ec-len-kmult");
