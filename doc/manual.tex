@@ -26,7 +26,9 @@ In terms of features, not much has changed: Minia remains a contigs assembler us
 \begin{itemize}
     \item Different command line format 
     \item Much faster $k$-mer counting step
-    \item Bubbles are collapsed using the most covered path (coverage information is now available for each node in the graph)
+    \item Different graph construction step (uses BCALM software to construct unitigs)
+    \item Different graph representation (no longer a Bloom filter, but an indexed list of unitigs)
+    \item SPAdes-style graph simplifications
 \end{itemize}
 
 \section{Installation}
@@ -138,6 +140,13 @@ Note that there is a known bug in the \verb+-starter simple+ behavior: some of t
 \section{Selection of graph simplification steps}
 
 By default, Minia performs 3 types of graph simplifications: tip removal, bulges removal, and erroneous connections removal. Those are similar to SPAdes. You can selectively ask to not perform any (or all) of those operation through those command line arguments: \verb+-no-tip-removal+, \verb+-no-bulge-removal+, \verb+-no-ec-removal+.
+
+\section{Fine-tuning of graph simplification steps}
+
+Most of the parameters are inspired by the SPAdes assembler.
+Tip removal implements two modes: "short tips" removal and "longer tips" removal. Short tips are removed no matter what their coverage is. By default, a tip is considered short if it is of length $\leq 3.5k$. Longer tips are of length $\leq 10k$. They are removed if their coverage is smaller than some constant times the average coverage of the neighbor unitigs.
+
+To make tip clipping more conservative, I would recommend specifying a high \verb+-tip-rctc-cutoff+ cutoff, such as \verb+-tip-rctc-cutoff 20+. This will make sure that the coverage of a tip is at least 20 times smaller than the coverage of its neighbors.
 
 \section{Memory usage}
 
