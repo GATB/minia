@@ -6,10 +6,6 @@
 
 Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Minia produces results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet).
 
-# What is new ?
-
-Minia version 1 was implementing a rather unusual way to perform the assembly: traverse the graph and attempt to jump over errors and variants. This worked rather okay but not for e.g. repeated regions with many sequencing errors. Minia version 2 also followed the same philosophy, and had major improvements coming from the integration of the GATB library (mostly speed improvements) and cascading Bloom filter.  Minia version 3 uses newer techniques and has virtually nothing in common with Minia 1: there is no Bloom filter anymore (the data structure is based on unitigs produced by the BCALM software). The assembly is performed using graph simplifications that are heavily inspired by the SPAdes assembler.
-
 # Getting the latest source code
 
 ## Requirements
@@ -37,6 +33,11 @@ A more complete manual:
     pdflatex manual.tex
 
 If you cannot compile it: http://minia.genouest.org/files/minia.pdf
+
+# What is new ? (2018)
+
+Minia version 1 was implementing a rather unusual way to perform the assembly: traverse the graph and attempt to jump over errors and variants. This worked rather okay but not for e.g. repeated regions with many sequencing errors. Minia version 2 also followed the same philosophy, and had major improvements coming from the integration of the GATB library (mostly speed improvements) and cascading Bloom filter.  Minia version 3 uses newer techniques and has virtually nothing in common with Minia 1: there is no Bloom filter anymore (the data structure is based on unitigs produced by the BCALM software). The assembly is performed using graph simplifications that are heavily inspired by the SPAdes assembler.
+
 
 # Contact
 
