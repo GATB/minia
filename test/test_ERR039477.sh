@@ -46,7 +46,7 @@ fi
 # we launch minia; note that we use only one thread (no real time issues with
 # potential different results)
 ################################################################################
-$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz
+$bindir/minia -nb-cores 1 -in ERR039477.fastq.gz -nb-glue-partitions 100
 
 ################################################################################
 # we check the result

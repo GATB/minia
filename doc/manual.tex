@@ -21,37 +21,33 @@
 
 \section{Forewords}
 
-Minia-GATB is the codename of a new version of Minia using the GATB library. We will drop the "-GATB" suffix and just refer to it as "Minia". 
-In terms of features, not much has changed: Minia remains a contigs assembler using very low memory. Notable changes are:
+Minia 3 is a completely new version that no longer uses Bloom filters.
+In terms of goals, not much has changed: Minia remains a contigs assembler using very low memory. Notable changes since Minia 1/2 are:
 \begin{itemize}
-    \item Different command line format 
-    \item Much faster $k$-mer counting step
+    \item Faster $k$-mer counting step
     \item Different graph construction step (uses BCALM software to construct unitigs)
-    \item Different graph representation (no longer a Bloom filter, but an indexed list of unitigs)
+    \item Different graph representation (not a Bloom filter, but an indexed list of unitigs)
     \item SPAdes-style graph simplifications
 \end{itemize}
 
 \section{Installation}
 
-Downlad the binary and run Minia using the comand \verb+./minia+.
-
-To install Minia from the sources, just type: \\ \verb+mkdir build && cd build && cmake .. && make -j 4+ \\
-Minia has been tested on Linux and MacOS systems.
+See Github page.
 
 \section{Parameters}
 
 The basic usage is:\\
 
 \begin{verbatim}
-    ./minia -in [input file] -kmer-size [kmer size] \
-            -abundance-min [abundance value] -out [prefix]
+    ./minia -in [input file] -kmer-size [kmer size] -out [prefix]
 \end{verbatim}
 
+Not much has changed since Minia 2 but we recommend that you still read the next section for an updated explanation of parameters.
 
 An example command line is:\\
 
 
-\verb+./minia -in reads.fastq -kmer-size 31 -abundance-min 3 -out minia_assembly_k31_m3+\\
+\verb+./minia -in reads.fastq -kmer-size 31 -out minia_assembly_k31+\\
 
 The main parameters are:
 
@@ -61,32 +57,28 @@ The main parameters are:
 
     \item \verb+kmer-size+  -- k-mer length (integer)
 
-    \item \verb+abundance-min+ -- specifies how many times a $k$-mer must be seen in the reads to be considered correct (integer)
-
 \item \verb+prefix+ -- any prefix string to store output contigs as well as temporary files for this assembly
 
 \end{enumerate}
-
-Minia now uses the Cascading Bloom filters improvement (http://arxiv.org/abs/1302.7278) by default, thanks to Gustavo Sacomoto for the implementation in Minia. Launch Minia with the \verb!-debloom original! option to revert to the original data structure.
-
 
 \section{Explanation of parameters}
 \begin{description}
 
 \vitem+kmer-size+
-The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. We recommend that you use the KmerGenie software to automatically find the best $k$ for your dataset.
+The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. For proper assembly, we recommend that you use the Minia-pipeline that runs Minia multiple times, with an iterative multi-k algorithm. That way, you won't need to choose k. If you insist on running with a single k value, the KmerGenie software can automatically find the best $k$ for your dataset.
 
 \vitem+abundance-min+
-The \verb+abundance-min+ is used to remove erroneous, low-abundance $k$-mers. This parameter also strongly depends on the dataset. Any $k$-mer that appears strictly less than \emph{abundance-min} times in the reads will be discarded. A typical value is $3$. It is also called "coverage cut-off" in other software (e.g. Velvet).
+The \verb+abundance-min+ is a hard cut-off to remove likely erroneous, low-abundance $k$-mers. In Minia 3, it is recommended to set it to 2 unless you have a good reason not to. Minia 3 also implements other ways to remove erroneous k-mers, using a more adequate relative cut-off, in the graph simplifications step.
 
-KmerGenie has an experimental feature (in the output of the command, not in the HTML report) that reports an optimal coverage cut-off (synonymous to abundance) parameter that exactly corresponds to the abundance-min parameter of Minia.
-
-\textbf{Setting \emph{abundance-min} to $1$ is not recommended}, as no erroneous $k$-mer will be discarded, which will likely result in a very large memory usage. In particular, if KmerGenie tells you to set abundance to 1, then still, set it to 2. If the dataset has high coverage, try larger values. 
+Setting \emph{abundance-min} to $1$ is not recommended, as too many erroneous $k$-mer will be kept, which will likely result in a very large memory usage. If the dataset has high coverage, it may be worth it to try larger values. 
 
 \vitem+prefix+
-The \verb+prefix+ parameter is any arbitrary file name prefix, for example, \verb+test_assembly+.
+The \verb+prefix+ parameter is any arbitrary output files name, for example, \verb+test_assembly+.
 
 \end{description}
+
+These are the main two parameters that control the quality of assembly. Minia command line has a few more parameters but they are either for advanced usage, or just minor tweaks. Some are described in the rest of this manual.
+
 
 \section{Input}
 
@@ -117,10 +109,6 @@ Minia assembles any type of Illumina reads, given in the FASTA or FASTQ format. 
 
 Minia can direclty read files compressed with gzip. Compressed files should end with '.gz'. Input files of different types can be mixed (i.e. gzipped or not, in FASTA or FASTQ)
 
-\item \emph{Graph input}
-
-Minia can take as input a graph in the HDF5 format, constructed using the dbgh5 program, or a different GATB tool, or from a previous run of Minia (useful when one wants to tweak assembly parameters). Use the \verb+-graph+ parameter to specify the graph, instead of the \verb+-in+ parameter.
-
 \end{description}
 
 \section{Output}
@@ -129,13 +117,7 @@ The output of Minia is a set of contigs in the FASTA format, in the file \verb+[
 
 \subsection*{Creating unitigs}
 
-Minia supports the creation of unitigs. Use the following command line: 
-\begin{verbatim}
--starter simple -no-length-cutoff -traversal unitig
-\end{verbatim}
-
-The \verb+-starter simple+ option is to turn off Minia's heuristics for starting node selection (which avoid starting inside a bubble).
-Note that there is a known bug in the \verb+-starter simple+ behavior: some of the unitigs of length k won't be returned (technically: the branching nodes which are neighbors of branching nodes are not returned).
+Minia will also output unitigs in the FASTA format. Those are non-branching paths in the de Bruijn graph prior to any graph simplification. File: \verb+[prefix].unitigs.fa+. 
 
 \section{Selection of graph simplification steps}
 
@@ -143,18 +125,30 @@ By default, Minia performs 3 types of graph simplifications: tip removal, bulges
 
 \section{Fine-tuning of graph simplification steps}
 
-Most of the parameters are inspired by the SPAdes assembler.
+Most of the graph simplification steps are highly inspired by the SPAdes assembler.
+
+A regular user needs not modify any of the graph simplifications parameters.
+Yet, for advanced users, it is possible to do so in order to increase or reduce the aggresiveness of variant/error removal.
+
 Tip removal implements two modes: "short tips" removal and "longer tips" removal. Short tips are removed no matter what their coverage is. By default, a tip is considered short if it is of length $\leq 3.5k$. Longer tips are of length $\leq 10k$. They are removed if their coverage is smaller than some constant times the average coverage of the neighbor unitigs.
 
 To make tip clipping more conservative, I would recommend specifying a high \verb+-tip-rctc-cutoff+ cutoff, such as \verb+-tip-rctc-cutoff 20+. This will make sure that the coverage of a tip is at least 20 times smaller than the coverage of its neighbors.
 
+An explanation of the other simplifications steps is coming later. For now you can try to guess using slide 11 of \url{http://cristal.univ-lille.fr/~chikhi/pdf/2017-august-3-biata.pdf}.
+
 \section{Memory usage}
 
-We estimate that the memory usage of Minia is roughly $1$ GB of RAM per gigabases in the target genome to assemble. It is independent of the coverage of the input dataset, provided that the \verb!abundance-min! parameter is correctly set. For example, a human genome was assembled in $5.7$ GB of RAM. This was using the original data structure; the current implementation relies on Cascading Bloom filters and uses $\approx 4$ GB. A better estimation of the memory usage can be found in the Minia article.
+We estimate that the memory usage of Minia is in the order of $1$ GB of RAM per gigabases in the target genome to assemble. It is independent of the coverage of the input dataset, provided that the \verb!abundance-min! parameter is not too low.
 
 \section{Disk usage}
 
-Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive. 
+Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive, SSD, or (very large) ram disk.
+
+\section{Reproducibility}
+
+Default Minia parameters do not ensure a deterministic execution: due to e.g. multi-threading, the results may change a little bit between executions (but should still give more or less the same assembly).
+To make sure that results are perfectly identical between runs on the same data and the same parameters, run with these options:
+\verb!-nb-cores 1 -nb-glue-partitions 200!.
 
 \section{Influences}
 

@@ -465,7 +465,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     glue.flush();
    
     // glue what needs to be glued. magic, we're re-using bcalm code
-    bglue<span> (nullptr /*no storage*/, assembly+".glue", k, nb_threads, verbose);
+    bglue<span> (nullptr /*no storage*/, assembly+".glue", k, 0, nb_threads, verbose);
     
     // append glued to merci
     out.flush();
