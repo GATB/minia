@@ -70,9 +70,9 @@ Minia::Minia () : Tool ("minia")
     getParser()->push_back (assemblyParser);
 
 	OptionsParser* simplificationsParser = new OptionsParser ("graph simplifications");
+
     // this requires that Minia is compiled to support kmer values of 32 at least.
-    GraphUnitigsTemplate<32> dummyGraph = GraphUnitigsTemplate<32>::create (new BankStrings ("AGGCGCC",(char*)0),  "-kmer-size 5  -minimizer-size 4 -abundance-min 1  -verbose 0");
-    Simplifications<GraphUnitigsTemplate<32>,NodeGU,EdgeGU> graphSimplifications(dummyGraph, 1, false); // get a graph simplifications object just to get default parameters
+    Simplifications<GraphUnitigsTemplate<32>,NodeGU,EdgeGU> graphSimplifications(nullptr, 1, false); // get a graph simplifications object just to get default parameters
 
 	simplificationsParser->push_back (new OptionNoParam  ("-no-bulge-removal", "ask to not perform bulge removal", false));
 	simplificationsParser->push_back (new OptionNoParam  ("-no-tip-removal",   "ask to not perform tip removal", false));
@@ -253,7 +253,7 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
     {
         int nbCores = getInput()->getInt(STR_NB_CORES);
         bool verbose=true;
-        Simplifications<Graph_type,Node,Edge> graphSimplifications(graph, nbCores, verbose);
+        Simplifications<Graph_type,Node,Edge> graphSimplifications(&graph, nbCores, verbose);
 
         if (getParser()->saw("-no-tip-removal"))
             graphSimplifications._doTipRemoval = false;
