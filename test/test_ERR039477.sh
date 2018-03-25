@@ -64,13 +64,15 @@ fi
 # name whereas md5 produces two spaces...
 #   diff ./ERR039477.md5 ./ERR039477.check
 
-REF_CHKSUM=`cut -d ' ' -f 1 ERR039477.md5`
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REF_CHKSUM=`cut -d ' ' -f 1 $SCRIPTDIR/ERR039477.md5` 
+REF_CHKSUM2=`cut -d ' ' -f 1 $SCRIPTDIR/ERR039477.md5-gcc47` # anther checksum due to older gcc, in gatb-ci machine
 CHKSUM=`cut -d ' ' -f 1 ERR039477.check`
 
-if [ "$REF_CHKSUM" == "$CHKSUM" ]; then
+if [ "$REF_CHKSUM" == "$CHKSUM" ] || [ "$REF_CHKSUM2" == "$CHKSUM" ]; then
    echo "TEST OK"
 else
-   echo "some debug: $REF_CHKSUM $CHKSUM"
+   echo "some debug: ref_checksum: $REF_CHKSUM ref_checksum2: $REF_CHKSUM2 current_checksum: $CHKSUM"
    head -n 4 ERR039477.fastq.contigs.fa
    tail -n 4 ERR039477.fastq.contigs.fa
    wc -l ERR039477.fastq.contigs.fa
