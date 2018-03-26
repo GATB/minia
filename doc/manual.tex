@@ -130,11 +130,11 @@ Most of the graph simplification steps are highly inspired by the SPAdes assembl
 A regular user needs not modify any of the graph simplifications parameters.
 Yet, for advanced users, it is possible to do so in order to increase or reduce the aggresiveness of variant/error removal.
 
-Tip removal implements two modes: "short tips" removal and "longer tips" removal. Short tips are removed no matter what their coverage is. By default, a tip is considered short if it is of length $\leq 3.5k$. Longer tips are of length $\leq 10k$. They are removed if their coverage is smaller than some constant times the average coverage of the neighbor unitigs.
+Tip removal implements two modes: "short tips" removal and "longer tips" removal. Short tips are removed no matter what their coverage is. By default, a tip is considered short if it is of length $\leq 3.5k$. Longer tips are of length $\leq 10k$. They are removed if their coverage is smaller than the average coverage of the neighbor unitigs, multiplied by a constant factor.
 
 To make tip clipping more conservative, I would recommend specifying a high \verb+-tip-rctc-cutoff+ cutoff, such as \verb+-tip-rctc-cutoff 20+. This will make sure that the coverage of a tip is at least 20 times smaller than the coverage of its neighbors.
 
-An explanation of the other simplifications steps is coming later. For now you can try to guess using slide 11 of \url{http://cristal.univ-lille.fr/~chikhi/pdf/2017-august-3-biata.pdf}.
+Explanation all the other simplifications steps would make this manual a bit longer. For now you can try to guess using slide 11 of \url{http://cristal.univ-lille.fr/~chikhi/pdf/2017-august-3-biata.pdf}. Some information can also be found in the SPAdes paper, where the term \emph{bulge} is defined.
 
 \section{Memory usage}
 
@@ -142,21 +142,23 @@ We estimate that the memory usage of Minia is in the order of $1$ GB of RAM per 
 
 \section{Disk usage}
 
-Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive, SSD, or (very large) ram disk.
+Minia writes large temporary files during the k-mer counting phase. These files are written in the working directory when you launched Minia. For better performance, run Minia on a local hard drive, SSD, or (very large) ram disk, around 2-3x time the space of the input.
 
 \section{Reproducibility}
 
 Default Minia parameters do not ensure a deterministic execution: due to e.g. multi-threading, the results may change a little bit between executions (but should still give more or less the same assembly).
 To make sure that results are perfectly identical between runs on the same data and the same parameters, run with these options:
-\verb!-nb-cores 1 -nb-glue-partitions 200!.
+\verb!-nb-cores 1 -nb-glue-partitions 200!. Also make sure that the same compiler version was used.
 
 \section{Influences}
 
-This version of Minia could not exist without inspiration taken from these great pieces of software:
+This version of Minia could not exist without inspiration taken from these great pieces of software and methods:
 \begin{itemize}
     \item khmer \url{https://github.com/dib-lab/khmer}
     \item KMC2 \url{https://github.com/marekkokot/KMC}
     \item SPAdes \url{http://bioinf.spbau.ru/spades}
+    \item MSP \url{http://www.vldb.org/pvldb/vol6/p169-li.pdf}
+    \item Meraculous \url{https://jgi.doe.gov/data-and-tools/meraculous/}
 \end{itemize}
 \end{document}
 
