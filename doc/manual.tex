@@ -113,11 +113,17 @@ Minia can direclty read files compressed with gzip. Compressed files should end 
 
 \section{Output}
 
-The output of Minia is a set of contigs in the FASTA format, in the file \verb+[prefix].contigs.fa+. 
+\subsection{Fasta}
 
-\subsection*{Creating unitigs}
+The main output of Minia is a set of contigs in the FASTA format, in the file \verb+[prefix].contigs.fa+. 
 
-Minia will also output unitigs in the FASTA format. Those are non-branching paths in the de Bruijn graph prior to any graph simplification. File: \verb+[prefix].unitigs.fa+. 
+\subsection{Assembly graph}
+
+The contigs FASTA file can be converted to GFA using https://github.com/GATB/bcalm/blob/master/scripts/convertToGFA.py
+
+\subsection*{Unitigs}
+
+Minia will also output unitigs, in the FASTA format. They correspond to non-branching paths in the de Bruijn graph prior to any graph simplification. File: \verb+[prefix].unitigs.fa+. 
 
 \section{Selection of graph simplification steps}
 

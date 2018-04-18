@@ -93,8 +93,7 @@ void index_assembly(string assembly, int k, int nb_threads, bool verbose, assemb
                 bool rc = modelCanon.toString(kmmerBegin.value()) != kmerBegin; // could be optimized
                 ExtremityInfo e (current_seq, rc, UNITIG_BEGIN); /* actually we dont know if its false/UNITIG_BEGIN or reverse/UNITIG_END but should think about it, for now, putting naive*/ 
                 index[kmmerBegin.value()] = e.pack();
-                if (debug)
-                std::cout << "index left kmer " << modelCanon.toString(kmmerBegin.value()) << " of contig " << current_seq << std::endl; 
+                if (debug) std::cout << "index left kmer " << modelCanon.toString(kmmerBegin.value()) << " of contig " << current_seq << std::endl; 
             }
 
             if (no_link_right)
@@ -104,8 +103,7 @@ void index_assembly(string assembly, int k, int nb_threads, bool verbose, assemb
                 bool rc =  modelCanon.toString(kmmerEnd.value()) != kmerEnd; // could be optimized
                 ExtremityInfo e (current_seq, rc, UNITIG_END); 
                 index[kmmerEnd.value()] = e.pack();
-                if (debug)
-                std::cout << "index right kmer " << modelCanon.toString(kmmerEnd.value()) << " of contig " << current_seq << std::endl; 
+                if (debug) std::cout << "index right kmer " << modelCanon.toString(kmmerEnd.value()) << " of contig " << current_seq << std::endl; 
             }
             current_seq++;
         }

@@ -32,12 +32,7 @@ C++11 compiler; (g++ version>=4.7 (Linux), clang version>=4.3 (Mac OSX))
 
 Type `minia` without any arguments for usage instructions.
 
-A more complete manual:
-
-    cd doc 
-    pdflatex manual.tex
-
-If you cannot compile it: http://minia.genouest.org/files/minia.pdf
+A more complete manual is here: http://minia.genouest.org/files/minia.pdf
 
 # What is new ? (2018)
 
