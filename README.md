@@ -32,7 +32,7 @@ C++11 compiler; (g++ version>=4.7 (Linux), clang version>=4.3 (Mac OSX))
 
 Type `minia` without any arguments for usage instructions.
 
-A more complete manual is here: http://minia.genouest.org/files/minia.pdf
+A more complete manual is here: https://github.com/GATB/minia/raw/master/doc/manual.pdf
 
 # What is new ? (2018)
 
