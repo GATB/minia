@@ -37,7 +37,10 @@ exec_program(
     ARGS "rev-parse --short HEAD"
     OUTPUT_VARIABLE VERSION_SHA1 )
 
-add_definitions( -DGIT_SHA1="${VERSION_SHA1}" )
+if ( VERSION_SHA1 MATCHES "^[0-9a-f]+$") # might return "git commit fatal: not a git repository"
+    message("Git version: ${VERSION_SHA1}")
+    add_definitions( -DGIT_SHA1="${VERSION_SHA1}" )
+endif()
 
 ################################################################################
 # Define cmake modules directory
@@ -93,6 +96,12 @@ file (GLOB_RECURSE  MerciFiles  ${MERCI_SOURCE_DIR}/*.cpp)
 add_executable("merci"  ${MerciFiles})
 target_link_libraries("merci" ${gatb-core-libraries})
 
+
+# that file will hold the version information as a #define
+configure_file (
+${PROJECT_SOURCE_DIR}/src/build_info.hpp.in
+${PROJECT_SOURCE_DIR}/src/build_info.hpp
+)
 
 ################################################################################
 #  DOC

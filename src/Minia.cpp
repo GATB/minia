@@ -51,7 +51,6 @@ static const char* progressFormat0 = "Minia : assembly";
 *********************************************************************/
 Minia::Minia () : Tool ("minia")
 {
-
 #ifdef GIT_SHA1
     std::cout << "Minia 3, git commit " << GIT_SHA1 << std::endl;
 #endif

@@ -20,6 +20,7 @@
 /********************************************************************************/
 
 #include <Minia.hpp>
+#include "build_info.hpp"
 
 using namespace std;
 
@@ -27,6 +28,19 @@ using namespace std;
 
 int main (int argc, char* argv[])
 {
+
+	if(argc > 1 && (   strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-v")==0 || strcmp(argv[1],"-version")==0    )     ){
+        std::cout << "Minia version " << STR_MINIA_VERSION << std::endl;
+#ifdef GIT_SHA1
+        std::cout << "git commit " << GIT_SHA1 << std::endl;
+#endif
+     	std::cout << "Using gatb-core version "<< System::info().getVersion() << std::endl;
+     	std::cout << "OS: " << STR_MINIA_OPERATING_SYSTEM << std::endl;
+        std::cout << "compiler: " << STR_MINIA_COMPILER << std::endl;
+		return EXIT_SUCCESS;
+	}
+
+
     // We define a try/catch block in case some method fails (bad filename for instance)
     try
     {
