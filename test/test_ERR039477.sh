@@ -19,6 +19,7 @@ fi
 # if wget is not installed, you may use "curl -O ..."
 DATA_SAMPLE="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR039/ERR039477/ERR039477.fastq.gz"
 WGET_PATH=`which wget`
+rm -f ERR039477.fastq.gz #needed otherwise wget will not overwrite and write to ERR039477.fastq.gz.1 instead
 echo ">>> Retrieving data sample: ${DATA_SAMPLE}"
 if [ ! -z "$WGET_PATH" ] ; then
   echo "    using '$WGET_PATH'..."
@@ -44,7 +45,7 @@ fi
 
 echo "size and MD5 of ERR039477.fastq.gz :"
 ls -l ERR039477.fastq.gz
-md5sum ERR039477.fastq.contigs.fa
+md5sum ERR039477.fastq.gz
 
 ################################################################################
 # we launch minia; note that we use only one thread (no real time issues with
