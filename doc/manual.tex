@@ -66,7 +66,7 @@ The main parameters are:
 \begin{description}
 
 \vitem+kmer-size+
-The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. For proper assembly, we recommend that you use the Minia-pipeline that runs Minia multiple times, with an iterative multi-k algorithm. That way, you won't need to choose k. If you insist on running with a single k value, the KmerGenie software can automatically find the best $k$ for your dataset.
+        The $k$-mer length is the length of the nodes in the de Bruijn graph. It strongly depends on the input dataset. For proper assembly, we recommend that you use the Minia-pipeline (\url{https://github.com/GATB/gatb-minia-pipeline}) that runs Minia multiple times, using an iterative multi-k algorithm (similar to IDBA, Megahit). That way, you won't need to choose k. If you insist on running with a single k value, the KmerGenie software can automatically find the best $k$ for your dataset.
 
 \vitem+abundance-min+
 The \verb+abundance-min+ is a hard cut-off to remove likely erroneous, low-abundance $k$-mers. In Minia 3, it is recommended to set it to 2 unless you have a good reason not to. Minia 3 also implements other ways to remove erroneous k-mers, using a more adequate relative cut-off, in the graph simplifications step.
