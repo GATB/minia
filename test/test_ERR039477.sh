@@ -42,6 +42,10 @@ else
   fi
 fi
 
+echo "size and MD5 of ERR039477.fastq.gz :"
+ls -l ERR039477.fastq.gz
+md5sum ERR039477.fastq.contigs.fa
+
 ################################################################################
 # we launch minia; note that we use only one thread (no real time issues with
 # potential different results)
