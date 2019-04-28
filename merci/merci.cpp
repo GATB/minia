@@ -373,6 +373,65 @@ static bool maybe_merge(uint64_t packed, connections_index_t &connections_index,
     return true; 
 }
 
+        
+static void
+parse_unitig_header(string header, float& mean_abundance)
+{
+    bool debug = false;
+    if (debug) std::cout << "parsing unitig links for " << header << std::endl;
+    std::stringstream stream(header);
+    while(1) {
+        string tok;
+        stream >> tok;
+        if(!stream)
+            break;
+
+        if (tok.size() < 3)
+            // that's the id, skip it
+            continue;
+
+        string field = tok.substr(0,2);
+
+		if (field == "km")
+		{
+			mean_abundance = atof(tok.substr(tok.find_last_of(':')+1).c_str());
+			//std::cout << "unitig " << header << " mean abundance " << mean_abundance << std::endl;
+		}
+	}
+}
+
+
+void renumber_glue_file(string glue_filename, uint64_t nb_out_tigs)
+{
+    {
+        std::ifstream infile(glue_filename);
+        std::ofstream outfile(glue_filename+".tmp");
+        std::string line;
+        uint64_t counter = 1;
+        while (std::getline(infile, line))
+        {
+            if (line[0] == '>')
+            {
+                size_t space_pos = line.find(' ');
+                /* // yolo
+                if (space_pos >= line.size())
+                {
+                    std::cout << "error: no space in this glue file header (" << line << ") contact a developer." << std::endl;
+                    exit(1);
+                }
+                */
+                auto end_header = line.substr(space_pos);
+                string new_header = ">" + std::to_string(nb_out_tigs+counter) + end_header;
+                outfile << new_header << std::endl;
+                counter++;
+            }
+            else
+                outfile << line << std::endl;
+        }
+    } // closes files
+    file_copy(glue_filename+".tmp",glue_filename);
+    System::file().remove (glue_filename+".tmp");
+}
 
 static void 
 extend_assembly_with_connections(const string assembly, int k, int nb_threads, bool verbose, connections_index_t &connections_index, connections_t &connections, BankFasta &out, BankFasta &glue)
@@ -415,6 +474,13 @@ extend_assembly_with_connections(const string assembly, int k, int nb_threads, b
         s.getData().setRef ((char*)seq.c_str(), seq.size());
         s._comment = string(lmark?"1":"0")+string(rmark?"1":"0"); //We set the sequence comment.
         s._comment += " ";
+
+        // add coverage information 
+		float mean_abundance;
+		parse_unitig_header(comment,mean_abundance);
+		uint nb_kmers = seq.size() - k + 1;
+		for (uint i = 0; i < nb_kmers; i++)
+			s._comment += std::to_string((uint)mean_abundance) + " ";
         
         if (lmark || rmark)
             glue.insert(s); 
@@ -464,10 +530,18 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
    
     // glue what needs to be glued. magic, we're re-using bcalm code
     bglue<span> (nullptr /*no storage*/, assembly+".glue", k, 0, nb_threads, verbose);
+  
+    // renumber the .glue file just to avoid ID collision with .merci file
+    renumber_glue_file(assembly+".glue", nb_tigs );
     
     // append glued to merci
     out.flush();
     file_append(assembly+".merci", assembly+".glue");
+
+    // bglue drop links so let's recreate them 
+    k += 1;
+    file_copy(assembly+".merci", assembly+".merci.b4link");
+    link_tigs<span>( assembly+".merci", k, nb_threads, nb_tigs, verbose);
 }
 
 class Merci : public gatb::core::tools::misc::impl::Tool
