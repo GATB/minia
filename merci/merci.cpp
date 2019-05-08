@@ -504,7 +504,8 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     string linked_assembly = assembly + ".linked";
     file_copy(assembly, linked_assembly);
     uint64_t nb_tigs = 0;
-    link_tigs<span>( linked_assembly, k, nb_threads, nb_tigs, verbose);
+    bool renumber_unitigs = true; // let's allow the input to be anything. Here it doesn't amtter much. We anyway renumber at the end
+    link_tigs<span>( linked_assembly, k, nb_threads, nb_tigs, verbose, renumber_unitigs);
 
     // real trick here
     // tigs of length exactly k are annoying, they need to be handled carefully with UNITIG_BOTH positions
@@ -541,7 +542,8 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     // bglue drop links so let's recreate them 
     k += 1;
     file_copy(assembly+".merci", assembly+".merci.b4link");
-    link_tigs<span>( assembly+".merci", k, nb_threads, nb_tigs, verbose);
+    renumber_unitigs = true; // here it's absolutely mandatory to renumber if we want the output to be processed by minia
+    link_tigs<span>( assembly+".merci", k, nb_threads, nb_tigs, verbose, renumber_unitigs);
 }
 
 class Merci : public gatb::core::tools::misc::impl::Tool

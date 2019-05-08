@@ -84,6 +84,8 @@ link_directories (${gatb-core-extra-libraries-path})
 set (PROGRAM_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+cmake_policy(SET CMP0009 NEW) # fixes cmake complaining about symlinks
+
 include_directories (${PROGRAM_SOURCE_DIR})
 file (GLOB_RECURSE  ProjectFiles  ${PROGRAM_SOURCE_DIR}/*)
 add_executable(${PROJECT_NAME} ${ProjectFiles})
