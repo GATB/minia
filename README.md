@@ -15,11 +15,15 @@ Minia is a short-read assembler based on a de Bruijn graph, capable of assemblin
 
 ## Requirements
 
-CMake 2.6+; see http://www.cmake.org/cmake/resources/software.html
+CMake 3.10+; see http://www.cmake.org/cmake/resources/software.html
 
 C++11 compiler; (g++ version>=4.7 (Linux), clang version>=4.3 (Mac OSX))
 
 ## Instructions
+
+It is recommended to use download the latest binary release (Linux or OSX) there: https://github.com/GATB/minia/releases*
+
+Otherwise, Minia may be compiled from sources as follows:
 
     # get a local copy of minia source code
     git clone --recursive https://github.com/GATB/minia.git
