@@ -274,8 +274,8 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
 			graphSimplifications._bulgeLen_kAdd = getInput()->getDouble("-bulge-len-kadd");
 		if (getParser()->saw("-bulge-altpath-kadd"))
 			graphSimplifications._bulgeAltPath_kAdd = getInput()->getDouble("-bulge-altpath-kadd");
-		if (getParser()->saw("-bulge-altpath-covMult"))
-			graphSimplifications._bulgeAltPath_covMult = getInput()->getDouble("-bulge-altpath-covMult");
+		if (getParser()->saw("-bulge-altpath-covmult"))
+			graphSimplifications._bulgeAltPath_covMult = getInput()->getDouble("-bulge-altpath-covmult");
 
 		if (getParser()->saw("-ec-len-kmult"))
 			graphSimplifications._ecLen_kMult = getInput()->getDouble("-ec-len-kmult");
