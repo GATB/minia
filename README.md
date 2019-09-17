@@ -2,22 +2,25 @@
 
 [![License](http://img.shields.io/:license-affero-blue.svg)](http://www.gnu.org/licenses/agpl-3.0.en.html)
 
+<!---
 | **Linux** | **Mac OSX** |
 |-----------|-------------|
 [![Build Status](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-debian7-64bits-gcc-4.7/badge/icon)](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-debian7-64bits-gcc-4.7/) | [![Build Status](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-macos-10.9.5-gcc-4.2.1/badge/icon)](https://ci.inria.fr/gatb-core/view/Minia/job/tool-minia-build-macos-10.9.5-gcc-4.2.1/)
+--->
 
+# Before continuing..
+
+If you are looking to do high-quality genome or metagenome assemblies, please go here: https://github.com/GATB/gatb-minia-pipeline
+
+This is a pipeline built on top of Minia that does a similar algorithm to metaSpades and MEGAHIT (multi-k assembly).
+
+Otherwise, this repository contains Minia, a single-k genome assembler.
 
 # What is Minia ?
 
 Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Minia produces results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet).
 
 # Getting the latest source code
-
-## Requirements
-
-CMake 3.10+; see http://www.cmake.org/cmake/resources/software.html
-
-C++11 compiler; (g++ version>=4.7 (Linux), clang version>=4.3 (Mac OSX))
 
 ## Instructions
 
@@ -31,6 +34,13 @@ Otherwise, Minia may be compiled from sources as follows:
     # compile the code an run a simple test on your computer
     cd minia
     sh INSTALL
+
+## Requirements
+
+CMake 3.10+; see http://www.cmake.org/cmake/resources/software.html
+
+C++11 compiler; (g++ version>=4.7 (Linux), clang version>=4.3 (Mac OSX))
+
 
 # User manual	 
 
