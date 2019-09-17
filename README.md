@@ -10,15 +10,11 @@
 
 # Before continuing..
 
-If you are looking to do high-quality genome or metagenome assemblies, please go here: https://github.com/GATB/gatb-minia-pipeline
+If you are looking to do high-quality genome or metagenome assemblies, please go here: https://github.com/GATB/gatb-minia-pipeline This is a pipeline built on top of Minia that does a similar algorithm to metaSpades and MEGAHIT (multi-k assembly).
 
-This is a pipeline built on top of Minia that does a similar algorithm to metaSpades and MEGAHIT (multi-k assembly).
+# Introduction
 
-Otherwise, this repository contains Minia, a single-k genome assembler.
-
-# What is Minia ?
-
-Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Minia produces results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet).
+Minia is a short-read assembler based on a de Bruijn graph, capable of assembling a human genome on a desktop computer in a day. The output of Minia is a set of contigs. Back when it was released, Minia produced results of similar contiguity and accuracy to other de Bruijn assemblers (e.g. Velvet). Now (2015 onwards), genome assemblers have evolved and in order ot have high contiguity, see the previous section. 
 
 # Getting the latest source code
 
