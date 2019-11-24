@@ -154,8 +154,7 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     // link contigs
     uint nb_threads = 1;  // doesn't matter because for now link_tigs is single-threaded
     bool verbose = true;
-    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose);
-
+    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose, false);
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));

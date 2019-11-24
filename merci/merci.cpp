@@ -530,7 +530,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     glue.flush();
    
     // glue what needs to be glued. magic, we're re-using bcalm code
-    bglue<span> (nullptr /*no storage*/, assembly+".glue", k, 0, nb_threads, verbose);
+    bglue<span> (nullptr /*no storage*/, assembly+".glue", k, 0, nb_threads, false, verbose);
   
     // renumber the .glue file just to avoid ID collision with .merci file
     renumber_glue_file(assembly+".glue", nb_tigs );
@@ -543,7 +543,7 @@ void merci(int k, string reads, string assembly, int nb_threads, bool verbose)
     k += 1;
     file_copy(assembly+".merci", assembly+".merci.b4link");
     renumber_unitigs = true; // here it's absolutely mandatory to renumber if we want the output to be processed by minia
-    link_tigs<span>( assembly+".merci", k, nb_threads, nb_tigs, verbose, renumber_unitigs);
+    link_tigs<span>( assembly+".merci", k, nb_threads, nb_tigs, verbose, false, renumber_unitigs);
 }
 
 class Merci : public gatb::core::tools::misc::impl::Tool
