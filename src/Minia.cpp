@@ -250,7 +250,7 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
     if (simplifyGraph)
     {
         int nbCores = getInput()->getInt(STR_NB_CORES);
-        bool verbose=true;
+        bool verbose=false;
         Simplifications<Graph_type,Node,Edge> graphSimplifications(&graph, nbCores, verbose);
 
         if (getParser()->saw("-no-tip-removal"))
@@ -309,6 +309,7 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
     getInfo()->add (2, "traversal",         "%s", getInput()->getStr(STR_TRAVERSAL_KIND).c_str());
+    getInfo()->add (2, "nb_solid_kmers",         "%d", graph._nbSolidKmers);
     getInfo()->add (2, "nb_contigs",         "%d", nbContigs);
     getInfo()->add (2, "nb_small_contigs_discarded","%d", nbSmallContigs);
     getInfo()->add (2, "nt_assembled",      "%ld", totalNt);
