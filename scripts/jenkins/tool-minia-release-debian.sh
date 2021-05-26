@@ -95,7 +95,7 @@ git clone https://github.com/pgdurand/github-release-api.git
 scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Linux.tar.gz .
 [ $? != 0 ] && exit 1
 scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz .
-[ $? != 0 ] && exit 1
+#[ $? != 0 ] && exit 1 # disabled because mavericks machine is down in 2021
 scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz .
 [ $? != 0 ] && exit 1
 
@@ -122,7 +122,7 @@ function uploadFile(){
 }
 
 uploadFile ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Linux.tar.gz
-uploadFile ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz
+#uploadFile ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz
 uploadFile ${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz
 
 
