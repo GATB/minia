@@ -30,6 +30,8 @@ DO_NOT_STOP_AT_ERROR : ${DO_NOT_STOP_AT_ERROR}
  Jenkins build parameters (built in)
 -----------------------------------------
 BUILD_NUMBER         : ${BUILD_NUMBER}
+JENKINS_HOME         : ${JENKINS_HOME}
+WORKSPACE            : ${WORKSPACE}
 "
 set -xv
 
@@ -85,18 +87,24 @@ if [ "$INRIA_FORGE_LOGIN" == none ]; then
 fi
 
 cd $BUILD_DIR
-git clone https://github.com/pgdurand/github-release-api.git
+git clone https://github.com/GATB/github-release-api.git
 
 ################################################################
 #                       RETRIEVE ARCHIVES FROM INRIA FORGE     #
 ################################################################
 
+CI_URL=https://ci.inria.fr/gatb-core/view/Minia-gitlab/job
+JENKINS_TASK_DEB=tool-minia-build-debian7-64bits-gcc-4.7-gitlab
+JENKINS_TASK_MAC=tool-minia-build-macos-10.9.5-gcc-4.2.1-gitlab
+
 #retrieve last build from ci-inria (see tool-lean-build-XXX tasks)
-scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Linux.tar.gz .
+wget $CI_URL/$JENKINS_TASK_DEB/lastSuccessfulBuild/artifact/$JENKINS_TASK_DEB/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Linux.tar.gz
 [ $? != 0 ] && exit 1
-scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz .
+
+#wget $CI_URL/$JENKINS_TASK_MAC/lastSuccessfulBuild/artifact/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz
 #[ $? != 0 ] && exit 1 # disabled because mavericks machine is down in 2021
-scp ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria/${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz .
+
+wget $CI_URL/$JENKINS_TASK_DEB/lastSuccessfulBuild/artifact/$JENKINS_TASK_DEB/${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz
 [ $? != 0 ] && exit 1
 
 ################################################################
