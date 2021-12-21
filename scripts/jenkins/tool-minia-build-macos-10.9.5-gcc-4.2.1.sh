@@ -28,6 +28,8 @@ DO_NOT_STOP_AT_ERROR : ${DO_NOT_STOP_AT_ERROR}
  Jenkins build parameters (built in)
 -----------------------------------------
 BUILD_NUMBER         : ${BUILD_NUMBER}
+JENKINS_HOME         : ${JENKINS_HOME}
+WORKSPACE            : ${WORKSPACE}
 "
 
 error_code () { [ "$DO_NOT_STOP_AT_ERROR" = "true" ] && { return 0 ; } }
@@ -102,9 +104,14 @@ fi
 
 # Prepare and upload bin and source bundle to the forge
 if [ $? -eq 0 ] && [ "$INRIA_FORGE_LOGIN" != none ] && [ "$DO_NOT_STOP_AT_ERROR" != true ]; then
-	make package
+    make package
+
+    # make both tar.gz available as Jenkins build artifacts    
+    cp ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz ${WORKSPACE}/
+    #cp ${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz ${WORKSPACE}/
+
     #make package_source # putting this in debian instead
-    scp ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria
+    #scp ${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria
     #scp ${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz ${INRIA_FORGE_LOGIN}@scm.gforge.inria.fr:/home/groups/gatb-tools/htdocs/ci-inria
 fi
 
