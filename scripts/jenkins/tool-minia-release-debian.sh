@@ -104,7 +104,7 @@ wget $CI_URL/$JENKINS_TASK_DEB/lastSuccessfulBuild/artifact/$JENKINS_TASK_DEB/${
 #wget $CI_URL/$JENKINS_TASK_MAC/lastSuccessfulBuild/artifact/${TOOL_NAME}-${BRANCH_TO_BUILD}-bin-Darwin.tar.gz
 #[ $? != 0 ] && exit 1 # disabled because mavericks machine is down in 2021
 
-wget $CI_URL/$JENKINS_TASK_DEB/lastSuccessfulBuild/artifact/${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz
+wget $CI_URL/$JENKINS_TASK_DEB/lastSuccessfulBuild/artifact/$JENKINS_TASK_DEB/${TOOL_NAME}-${BRANCH_TO_BUILD}-Source.tar.gz
 [ $? != 0 ] && exit 1
 
 ################################################################
