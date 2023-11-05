@@ -83,7 +83,7 @@ Minia::Minia () : Tool ("minia")
 
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kmult",    "bulges shorter than k*X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kMult)));
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-len-kadd",     "bulges shorter than k+X bp are candidate to be removed",  false, to_string(graphSimplifications._bulgeLen_kAdd)));
-	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X nodes to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd))); // TODO k should not appear in that equation
+	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-kadd", "explore up to k+X depth to find alternative path",  false, to_string(graphSimplifications._bulgeAltPath_kAdd))); // TODO k should not appear in that equation
 	simplificationsParser->push_back (new OptionOneParam ("-bulge-altpath-covmult", "bulges of coverage <= X*cov_altpath will be removed",  false, to_string(graphSimplifications._bulgeAltPath_covMult))); 
 
 	simplificationsParser->push_back (new OptionOneParam ("-ec-len-kmult",       "EC shorter than k*X bp are candidates to be removed",  false, to_string(graphSimplifications._ecLen_kMult)));
