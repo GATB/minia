@@ -245,12 +245,13 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
 
     /** We get an iterator over all nodes . */
     ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem> itNode (graph.Graph_type::iterator(), progressFormat0);
+    
+    bool verbose = getParser()->saw("-verbose");
 
     // if we want unitigs, then don't simplify the graph; else do it
     if (simplifyGraph)
     {
         int nbCores = getInput()->getInt(STR_NB_CORES);
-        bool verbose=false;
         Simplifications<Graph_type,Node,Edge> graphSimplifications(&graph, nbCores, verbose);
 
         if (getParser()->saw("-no-tip-removal"))
