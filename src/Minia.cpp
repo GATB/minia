@@ -153,8 +153,10 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 
     // link contigs
     uint nb_threads = 1;  // doesn't matter because for now link_tigs is single-threaded
-    bool verbose = true;
-    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose, false);
+    int verbose = 1;
+    if (minia.getInput()->get(STR_VERBOSE))
+        verbose = minia.getInput()->getInt(STR_VERBOSE);
+    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose > 0, false);
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
@@ -246,7 +248,9 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
     /** We get an iterator over all nodes . */
     ProgressGraphIteratorTemplate<Node,ProgressTimerAndSystem> itNode (graph.Graph_type::iterator(), progressFormat0);
     
-    bool verbose = getParser()->saw("-verbose");
+    int verbose = 1;
+    if (getInput()->get(STR_VERBOSE))
+        verbose = getInput()->getInt(STR_VERBOSE);
 
     // if we want unitigs, then don't simplify the graph; else do it
     if (simplifyGraph)
