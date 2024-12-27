@@ -132,6 +132,15 @@ bool fileExists(const std::string& filePath) {
     return (stat(filePath.c_str(), &buffer) == 0);
 }
 
+void touchFile(const std::string& filePath) {
+    std::ofstream file(filePath, std::ios::app);  // Open in append mode
+    if (file) {
+        std::cout << "File created (or modified timestamp updated): " << filePath << "\n";
+    } else {
+        std::cerr << "Failed to create the file: " << filePath << "\n";
+    }
+}
+
 template<size_t span> 
 struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 {
@@ -168,7 +177,10 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
             verbose = minia.getInput()->getInt(STR_VERBOSE);
         link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose > 0, false);
 
-    } else { std::cerr << "No contigs were constructed" << std::endl; }
+    } else { 
+        std::cerr << "No contigs were constructed" << std::endl; 
+        touchFile(output);
+    }
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
