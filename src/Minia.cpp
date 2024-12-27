@@ -27,6 +27,9 @@
 
 #include <fstream>
 #include <iomanip> // for setprecision
+#include <cstdio>  // For remove()
+#include <sys/stat.h>
+
 using namespace std;
 
 /********************************************************************************/
@@ -124,6 +127,11 @@ struct Parameter
     Minia&         minia;
 };
 
+bool fileExists(const std::string& filePath) {
+    struct stat buffer;
+    return (stat(filePath.c_str(), &buffer) == 0);
+}
+
 template<size_t span> 
 struct MiniaFunctor  {  void operator ()  (Parameter parameter)
 {
@@ -151,12 +159,16 @@ struct MiniaFunctor  {  void operator ()  (Parameter parameter)
     /** We build the contigs. */
     string output = minia.assemble<GraphType, NodeGU, EdgeGU, span>(graph);
 
-    // link contigs
-    uint nb_threads = 1;  // doesn't matter because for now link_tigs is single-threaded
-    int verbose = 1;
-    if (minia.getInput()->get(STR_VERBOSE))
-        verbose = minia.getInput()->getInt(STR_VERBOSE);
-    link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose > 0, false);
+    if (fileExists(output)) {
+
+        // link contigs
+        uint nb_threads = 1;  // doesn't matter because for now link_tigs is single-threaded
+        int verbose = 1;
+        if (minia.getInput()->get(STR_VERBOSE))
+            verbose = minia.getInput()->getInt(STR_VERBOSE);
+        link_tigs<span>(output, minia.k, nb_threads, minia.nbContigs, verbose > 0, false);
+
+    } else { std::cerr << "No contigs were constructed" << std::endl; }
 
     /** We gather some statistics. */
     minia.getInfo()->add (1, minia.getTimeInfo().getProperties("time"));
@@ -222,6 +234,9 @@ string Minia::assemble (/*const, removed because Simplifications isn't const any
         getInput()->getStr(STR_URI_OUTPUT) :
         System::file().getBaseName (getInput()->getStr(STR_URI_INPUT)) 
                     )+ ".contigs.fa";
+
+    // delete contigs file if already exists
+    std::remove(output.c_str());
 
     /** We create the output bank. Note that we could make this a little bit prettier
      *  => possibility to save the contigs in specific output format (other than fasta).  */
